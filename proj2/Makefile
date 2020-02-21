@@ -4,11 +4,11 @@
 # bjr
 #
 
-PORT= 
+PORT= 33031
 # these will be the IP address given by ifconfig on the two
 # AWS instances (or lab computers)
-MC= 
-MS= 
+MC= 129.171.6.177 
+MS= 172.31.21.5
 
 all:
 	make passaround
