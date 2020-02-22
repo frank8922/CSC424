@@ -126,7 +126,6 @@ int main(int argc, char * argv[])
 
 		 free(msg); 
 		 free(payload);
-		 //free(send_addr);
 		 n_repeat-- ; // a packet sent
 	}
 	//**end parse first address from message and send payload
@@ -200,10 +199,11 @@ void bindAddress_to_sock(struct sockaddr_in* client_addr,int *sockfd,struct host
  */
 char* parseHost(char** msg)
 {		
-	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
-	char * send_addr; //= (char *)malloc(len_send_addr * sizeof(char)); //allocate space for address
-	send_addr = strtok(*msg,":"); //parse and store send address
-	printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
+	// int len_send_addr = strcspn(*msg,":"); //parse length of send address;
+	char* send_addr = strtok(*msg,":"); //parse and store send address
+										//*NOTE* send_addr shares the same memory with msg, 
+										//therefore free(msg) handles clean up of memory
+	// printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
 	return send_addr;	
 }
 
