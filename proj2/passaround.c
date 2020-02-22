@@ -28,13 +28,12 @@
 #define LOCALHOST "localhost" //127.0.0.1
 #define MAXMSGLEN 2048 //Max message length
 #define N_REPEAT_DEFAULT 1 //Repeat set to true
-#define BUFF_SIZE 256
 
 #define USAGE_MESSAGE "usage: passaround [-v] [-n num] [-m message] port"
 #define PROG_NAME "passaround" 
 
 /* param: pointer to socket file descriptor
- * return: true if socket opened,false otherwise.
+ * throws error and exits if error.
  */
 void opensocket(int *sockfd)
 {
@@ -61,7 +60,7 @@ void getHostname(struct hostent** host_ent, char* send_addr)
 }
 
 /* params: sockaddr_in pointer, file descriptor pointer, hostent pointer, and port number
- * return: true if able to bind address to socket, false otherwise.
+ * throws error and exits if error.
  */
 void bindAddress_to_sock(struct sockaddr_in* client_addr,int *sockfd,struct hostent* host_ent,int port)
 {
@@ -95,9 +94,23 @@ char* parsePayload(char** msg,int len_of_msg)
 	char * payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
 	memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
 	memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
-	payload [len_of_payload] = '\0'; //append null terminator
+	payload[len_of_payload] = '\0'; //append null terminator
 	printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
 	return payload;
+}
+/* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
+ * return: numbytes if successful, throws error and exits otherwise.
+ */
+int sendPayload(int sockfd, char* payload, int len_of_payload, struct sockaddr_in* client_addr)
+{
+	int numbytes_sent;
+	if((numbytes_sent=sendto(sockfd,payload,len_of_payload,0,
+		(struct sockaddr* )&(*client_addr),sizeof(struct sockaddr)))== -1)
+	{
+		perror("failed to send packet");
+		exit(1);
+	}
+	return numbytes_sent;
 }
 
 
@@ -111,10 +124,9 @@ int main(int argc, char * argv[])
 	struct sockaddr_in client_addr; //holds inet protocol, address port,
 					// ipv4 address, sin_zero(not used)
 	struct hostent *host_ent;
-	int numbytes ; //holds the number of bytes written out
+	int numbytes_sent; //holds the number of bytes written out
 	int ch ;
 	int the_port = 0 ;
-	int loop = 1 ; //loop on by default
 	int n_repeat = N_REPEAT_DEFAULT ; //
 	char * msg = NULL ; //ponter to the msg
 	int is_forever = 0 ;
@@ -161,9 +173,7 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 	if ( msg ) {
 
 		// parse and send
-		 int len_send_addr;
 		 int len_of_msg = strlen(msg);
-		 int numbytes_sent;
 		 char * send_addr;
 		 char * payload;
 
@@ -174,30 +184,25 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 		 getHostname(&host_ent,send_addr);
 		 //**end get hostname
 
-		//**open socket
-		opensocket(&sockfd);
-		//**end open socket
+		 //**open socket
+		 opensocket(&sockfd);
+		 //**end open socket
 		
-		//**binding address to socket
-		bindAddress_to_sock(&client_addr,&sockfd,host_ent,the_port);
-		//**end binding address to socket
+		 //**binding address to socket
+		 bindAddress_to_sock(&client_addr,&sockfd,host_ent,the_port);
+		 //**end binding address to socket
 		
-		//**send payload to address
-		if((numbytes_sent=sendto(sockfd,payload,strlen(payload),0,
-			(struct sockaddr* )&client_addr,sizeof(struct sockaddr)))== -1)
-		{
-			perror("failed to send packet");
-			exit(1);
-		}
-		//**end send payload to address
+		 //**send payload to address
+		 numbytes_sent = sendPayload(sockfd,payload,strlen(payload),&client_addr);
+		 //**end send payload to address
 
 		
-		printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+		 printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
 
-		free(msg); 
-		free(payload);
-		free(send_addr);
-		n_repeat-- ; // a packet sent
+		 free(msg); 
+		 free(payload);
+		 //free(send_addr);
+		 n_repeat-- ; // a packet sent
 	}
 	//**end parse first address from message and send payload
 
