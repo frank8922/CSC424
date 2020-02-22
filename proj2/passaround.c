@@ -88,10 +88,10 @@ char* parseHost(char** msg)
 	return send_addr;	
 }
 
-char* parsePayload(char** msg)
+char* parsePayload(char** msg,int len_of_msg)
 {
 	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
-	int len_of_payload = strlen(*msg) - len_send_addr;
+	int len_of_payload = len_of_msg - len_send_addr;
 	char * payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
 	memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
 	memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
@@ -162,15 +162,13 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 
 		// parse and send
 		 int len_send_addr;
-		 int len_of_payload;
+		 int len_of_msg = strlen(msg);
 		 int numbytes_sent;
 		 char * send_addr;
 		 char * payload;
 
 		 send_addr = parseHost(&msg);
-		 payload = parsePayload(&msg);
-
-		 printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
+		 payload = parsePayload(&msg,len_of_msg);
 
 		 //**get hostname
 		 getHostname(&host_ent,send_addr);
