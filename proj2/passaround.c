@@ -78,6 +78,9 @@ void bindAddress_to_sock(struct sockaddr_in* client_addr,int *sockfd,struct host
 	}
 }
 
+/* params: msg to parse containing host
+ * return: sender address
+ */
 char* parseHost(char** msg)
 {		
 	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
@@ -87,6 +90,9 @@ char* parseHost(char** msg)
 	return send_addr;	
 }
 
+/* params: msg to parse, len of msg
+ * return: payload;
+ */
 char* parsePayload(char** msg,int len_of_msg)
 {
 	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
@@ -98,6 +104,7 @@ char* parsePayload(char** msg,int len_of_msg)
 	printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
 	return payload;
 }
+
 /* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
  * return: numbytes if successful, throws error and exits otherwise.
  */
