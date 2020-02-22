@@ -3,7 +3,7 @@
 **
 ** author: Francisco Belliard
 ** date: Feb 05 2020 23:25:03
-** last modified:FFeb 06 2020 01:23:49
+** last modified:Feb 21 2020 22:29:49
 **
 ** from template created 31 jan 2015 by bjr
 **
@@ -27,12 +27,22 @@
 #define LOCALHOST "localhost" //127.0.0.1
 #define MAXMSGLEN 2048 //Max message length
 #define N_REPEAT_DEFAULT 1 //Repeat set to true
+#define BUFF_SIZE 
 
 #define USAGE_MESSAGE "usage: passaround [-v] [-n num] [-m message] port"
+#define PROG_NAME "passaround" 
 
 int g_verbose = 0 ;
 
-int main(int argc, char * argv[]) {
+int main(int argc, char * argv[]) 
+{
+
+ 	int sockfd ; //socket file descriptor
+	struct sockaddr_in server_addr; //holds inet protocol, address port,
+	struct sockaddr_in client_addr; //holds inet protocol, address port,
+					// ipv4 address, sin_zero(not used)
+	struct hostent *host_ent;
+	int numbytes ; //holds the number of bytes written out
 	int ch ;
 	int the_port = 0 ;
 	int loop = 1 ; //loop on by default
@@ -73,26 +83,83 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 	}
 
 	the_port = atoi(*argv) ; //convert to integer and store in the_port
+	printf("port: %d\n",the_port);
 	assert(the_port) ;
 
-	is_forever = (n_repeat == 0) ; //if 
-	
+	is_forever = (n_repeat == 0) ; //flag to terminate sending packets, 
+								   //if n_repeat is 0, loop infinitely 
+
+	//**parse first address from message and send payload
 	if ( msg ) {
 
 		// parse and send
+		 int len_send_addr;
+		 int len_of_payload;
+		 int numbytes_sent;
+		 char * send_addr;
+		 char * payload;
 
-		//this loop prints the args passed after specifying
-		//-m flag.
-		for (size_t i = 0; msg[i] != '\0'; i++)
-		{
-			printf("%c",msg[i]);
+
+		 len_send_addr = strcspn(msg,":"); //parse length of send address
+		 len_of_payload = strlen(msg) - len_send_addr;
+		 send_addr = strtok(msg,":"); //parse and store send address
+		 payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
+		 memset(payload,'\0',len_of_payload * sizeof(payload)); //clear memory
+		 memcpy(payload,&msg[len_send_addr+1],sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
+		 payload [len_of_payload] = '\0'; //append null terminator
+
+		 printf("DEBUG:send_addr=%s len=%d\n",send_addr,len_send_addr);
+		 printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
+
+		 //**get hostname
+		 if ((host_ent = gethostbyname(send_addr)) == NULL)
+		 {
+			 perror("failed to get hostname");
+			 exit(1);
+		 } 
+		 //**end get hostname
+
+		//**open socket
+		if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1) {
+			perror("failed to create socket") ;
+			exit(1) ;
 		}
+		//**end open socket
 		
+		//**construct client address
+		client_addr.sin_family = AF_INET;
+		client_addr.sin_port = htons((short)the_port);
+		client_addr.sin_addr = *((struct in_addr *)host_ent->h_addr);
+		memset(&(client_addr.sin_zero),'\0',8);
+		//**end constructing client address
+
+
+		//**bind address to socket
+		if (bind(sockfd, (struct sockaddr *)&client_addr,
+			sizeof(struct sockaddr)) == -1 ) 
+		{
+			perror("failed to bind");
+			exit(1) ;
+		}
+		//**end binding address to socket
+
+		if((numbytes_sent=sendto(sockfd,payload,len_of_payload,0,
+			(struct sockaddr* )&client_addr,sizeof(struct sockaddr)))== -1)
+		{
+			perror("failed to send packet");
+			exit(1);
+		}
+
 		
-		free(msg) ;
+		printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+
+		free(msg); 
+		free(payload);
 		n_repeat-- ; // a packet sent
 	}
-	
+	//**end parse first address from message and send payload
+
+		
 	while( is_forever || n_repeat ) {
 	
 		// listen for a packet
@@ -105,6 +172,8 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 
 		n_repeat-- ;
 	}
+
+	close(sockfd); //close socket
 	return 0 ;
 }
 
