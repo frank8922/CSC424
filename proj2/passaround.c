@@ -21,16 +21,85 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<assert.h>
+#include<stdbool.h>
 
 #include "passaround.h"
 
 #define LOCALHOST "localhost" //127.0.0.1
 #define MAXMSGLEN 2048 //Max message length
 #define N_REPEAT_DEFAULT 1 //Repeat set to true
-#define BUFF_SIZE 
+#define BUFF_SIZE 256
 
 #define USAGE_MESSAGE "usage: passaround [-v] [-n num] [-m message] port"
 #define PROG_NAME "passaround" 
+
+/* param: pointer to socket file descriptor
+ * return: true if socket opened,false otherwise.
+ */
+void opensocket(int *sockfd)
+{
+	*sockfd=socket(AF_INET,SOCK_DGRAM,0);
+	if(*sockfd == -1)
+	{
+		perror("failed to create socket");
+		exit(1) ;
+	}
+}
+
+/* params: pointer to hostent struct and char array of requested hostname
+ * return: true if able to get hostname, false otherwise.
+ */
+void getHostname(struct hostent** host_ent, char* send_addr)
+{
+	//struct hostent* hp = (struct hostent*)malloc(sizeof(struct hostent*));
+	if((*host_ent = gethostbyname(send_addr))==NULL)
+	{
+		perror("failed to get hostname");
+		exit(1);
+	}
+
+}
+
+/* params: sockaddr_in pointer, file descriptor pointer, hostent pointer, and port number
+ * return: true if able to bind address to socket, false otherwise.
+ */
+void bindAddress_to_sock(struct sockaddr_in* client_addr,int *sockfd,struct hostent* host_ent,int port)
+{
+	//**construct client address
+	(client_addr)->sin_family = AF_INET;
+	(client_addr)->sin_port = htons((short)port);
+	(client_addr)->sin_addr = *((struct in_addr *)host_ent->h_addr);
+	memset(&((client_addr)->sin_zero),'\0',8);
+	//**end constructing client address
+
+	if(bind(*sockfd,(struct sockaddr*)(client_addr),sizeof(struct sockaddr))== -1)
+	{
+		perror("failed to bind");
+		exit(1);
+	}
+}
+
+char* parseHost(char** msg)
+{		
+	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
+	char * send_addr = (char *)malloc(len_send_addr * sizeof(char));
+	send_addr = strtok(*msg,":"); //parse and store send address
+	printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
+	return send_addr;	
+}
+
+char* parsePayload(char** msg)
+{
+	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
+	int len_of_payload = strlen(*msg) - len_send_addr;
+	char * payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
+	memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
+	memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
+	payload [len_of_payload] = '\0'; //append null terminator
+	printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
+	return payload;
+}
+
 
 int g_verbose = 0 ;
 
@@ -54,8 +123,7 @@ int main(int argc, char * argv[])
 
 	/* getopt()
 	 * OPTSTRING contains the option letters to be recognized; if a letter is followed by a colon, the option is expected to have an argument, which should be separated from it by white space. 
-	 * When an option requires an argument, getopts places that argument into the shell variable OPTARG.
-	*/
+	 * When an option requires an argument, getopts places that argument into the shell variable OPTARG. */
 	
 while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 		switch(ch) {
@@ -99,62 +167,38 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 		 char * send_addr;
 		 char * payload;
 
+		 send_addr = parseHost(&msg);
+		 payload = parsePayload(&msg);
 
-		 len_send_addr = strcspn(msg,":"); //parse length of send address
-		 len_of_payload = strlen(msg) - len_send_addr;
-		 send_addr = strtok(msg,":"); //parse and store send address
-		 payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
-		 memset(payload,'\0',len_of_payload * sizeof(payload)); //clear memory
-		 memcpy(payload,&msg[len_send_addr+1],sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
-		 payload [len_of_payload] = '\0'; //append null terminator
-
-		 printf("DEBUG:send_addr=%s len=%d\n",send_addr,len_send_addr);
 		 printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
 
 		 //**get hostname
-		 if ((host_ent = gethostbyname(send_addr)) == NULL)
-		 {
-			 perror("failed to get hostname");
-			 exit(1);
-		 } 
+		 getHostname(&host_ent,send_addr);
 		 //**end get hostname
 
 		//**open socket
-		if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1) {
-			perror("failed to create socket") ;
-			exit(1) ;
-		}
+		opensocket(&sockfd);
 		//**end open socket
 		
-		//**construct client address
-		client_addr.sin_family = AF_INET;
-		client_addr.sin_port = htons((short)the_port);
-		client_addr.sin_addr = *((struct in_addr *)host_ent->h_addr);
-		memset(&(client_addr.sin_zero),'\0',8);
-		//**end constructing client address
-
-
-		//**bind address to socket
-		if (bind(sockfd, (struct sockaddr *)&client_addr,
-			sizeof(struct sockaddr)) == -1 ) 
-		{
-			perror("failed to bind");
-			exit(1) ;
-		}
+		//**binding address to socket
+		bindAddress_to_sock(&client_addr,&sockfd,host_ent,the_port);
 		//**end binding address to socket
-
-		if((numbytes_sent=sendto(sockfd,payload,len_of_payload,0,
+		
+		//**send payload to address
+		if((numbytes_sent=sendto(sockfd,payload,strlen(payload),0,
 			(struct sockaddr* )&client_addr,sizeof(struct sockaddr)))== -1)
 		{
 			perror("failed to send packet");
 			exit(1);
 		}
+		//**end send payload to address
 
 		
 		printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
 
 		free(msg); 
 		free(payload);
+		free(send_addr);
 		n_repeat-- ; // a packet sent
 	}
 	//**end parse first address from message and send payload
@@ -176,6 +220,7 @@ while ((ch = getopt(argc, argv, "vm:n:")) != -1) {
 	close(sockfd); //close socket
 	return 0 ;
 }
+
 
 /* 	//Specifications:
 
