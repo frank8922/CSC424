@@ -201,7 +201,7 @@ char* parseHost(char** msg)
 {		
    int len_send_addr = strcspn(*msg,":"); //parse length of send address;
   
-  //parse and store send address
+   	//parse and store send address
 	//*NOTE* send_addr shares the same memory with msg, 
 	//therefore free(msg) handles clean up of memory
 	char* send_addr = strtok(*msg,":"); 
