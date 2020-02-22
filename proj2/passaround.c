@@ -199,11 +199,14 @@ void bindAddress_to_sock(struct sockaddr_in* client_addr,int *sockfd,struct host
  */
 char* parseHost(char** msg)
 {		
-	// int len_send_addr = strcspn(*msg,":"); //parse length of send address;
-	char* send_addr = strtok(*msg,":"); //parse and store send address
-										//*NOTE* send_addr shares the same memory with msg, 
-										//therefore free(msg) handles clean up of memory
-	// printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
+   int len_send_addr = strcspn(*msg,":"); //parse length of send address;
+  
+  //parse and store send address
+	//*NOTE* send_addr shares the same memory with msg, 
+	//therefore free(msg) handles clean up of memory
+	char* send_addr = strtok(*msg,":"); 
+
+  printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
 	return send_addr;	
 }
 
