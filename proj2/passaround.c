@@ -115,28 +115,26 @@ int main(int argc, char * argv[])
 
 		 send_addr = parseHost(&msg);
 		 payload = parsePayload(&msg,len_of_msg);
-		 printf("length of payload = %d\n",strlen(payload));
+		//  printf("length of payload = %d\n",strlen(payload));
 
 		 //**open socket
 		 opensocket(&sockfd);
 		 //**end open socket
 
 		//**get hostname
-		//getHostname(&clientinfo,send_addr);
-		if((clientinfo = gethostbyname(send_addr))==NULL)
+		// getHostname(&clientinfo,send_addr);
+		client_addr.sin_family = AF_INET;
+		client_addr.sin_port = htons(the_port);
+		if(inet_aton(send_addr,(struct in_addr*)&client_addr.sin_addr))
 		{
-			perror("failed to get hostname");
+			perror("failed to convert to network order");
 			exit(1);
 		}
-		 //**end get hostname
+		memset(&(server_addr.sin_zero),'\0',8) ;
+		//**end get hostname
 
 		
-		 //**binding address to socketserver_addr.sin_family = AF_INET ;
-		client_addr.sin_family = AF_INET ;
-		client_addr.sin_port = htons((short)the_port) ;
-		client_addr.sin_addr = *((struct in_addr*)clientinfo->h_addr);
-		memset(&(server_addr.sin_zero),'\0',8) ;
-
+		 //**binding address to socket
 		if(bind(sockfd,(addr*)&client_addr,sizeof(addr))== -1)
 		{
 			perror("failed to bind");
@@ -147,53 +145,61 @@ int main(int argc, char * argv[])
 		
 		 //**send payload to address
 		 numbytes_sent = sendPayload(&sockfd,payload,strlen(payload),&client_addr);
+		printf("S: %s:%d |%s|\n",inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port),buffer);
 		 //**end send payload to address
 
 		
-		 printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+		//  printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
 
 		 free(msg); 
 		 free(payload);
 		 n_repeat-- ; // a packet sent
 	}
-	//**end parse first address from message and send payload
-		server_addr.sin_family = AF_INET ;
-		server_addr.sin_port = htons((short)the_port+1) ;
-		server_addr.sin_addr.s_addr = INADDR_ANY ;
-		memset(&(server_addr.sin_zero),'\0',8) ;
-		int lsock;
-		opensocket(&lsock);
-		if(bind(lsock,(addr*)&server_addr,sizeof(addr))== -1)
-		{
-			perror("failed to bind");
-			exit(1);
-		}
+		// //**end parse first address from message and send payload
+		// server_addr.sin_family = AF_INET ;
+		// //server_addr.sin_port = htons((short)the_port);
+		// server_addr.sin_addr.s_addr = INADDR_ANY ;
+		// memset(&(server_addr.sin_zero),'\0',8) ;
+		// if(bind(listen,(addr*)&server_addr,sizeof(addr))== -1)
+		// {
+		// 	perror("failed to bind");
+		// 	exit(1);
+		// }
 	
-	while( is_forever || n_repeat ) {
+	while( is_forever || n_repeat ) 
+	{
 		
 		numbytes_recv = recvPayload(&sockfd,&server_addr,buffer,MAXMSGLEN);
-		printf("recv %d bytes from %s\n",numbytes_recv,"client");
+		// printf("recv %d bytes from %s\n",numbytes_recv,inet_ntoa(server_addr.sin_addr));
 		buffer[numbytes_recv]='\0';
+		printf("R: %s:%d |%s|\n",inet_ntoa(server_addr.sin_addr),ntohs(server_addr.sin_port),buffer);
 		if(numbytes_recv > 0)	
 		{
 			char * buff = strdup(buffer);
 			send_addr = parseHost(&buff);
-			payload = parsePayload(&buff,strlen(buffer));
-			printf("length of payload = %d\n",strlen(payload));
-			// if something to send, {
-            if((clientinfo = gethostbyname(send_addr))==NULL)
+			payload = parsePayload(&buff,strlen(buff));
+			if(strlen(payload) > 0)
 			{
-				perror("failed to get hostname");
-				exit(1);
+				// printf("length of payload = %d\n",strlen(payload));
+				// if something to send, {
+				if(inet_aton(send_addr,(struct in_addr*)&server_addr.sin_addr))
+				{
+					perror("failed to convert to network order");
+					exit(1);
+				}
+				numbytes_sent = sendPayload(&sockfd,payload,strlen(payload),&server_addr);
+				//**end send payload to address
+				// printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+				printf("S: %s:%d |%s|\n",inet_ntoa(server_addr.sin_addr),ntohs(server_addr.sin_port),buffer);
 			}
-			client_addr.sin_addr = *((struct in_addr*)clientinfo->h_addr);
-			numbytes_sent = sendPayload(&lsock,payload,strlen(payload),&client_addr);
-			//**end send payload to address
-			printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+			else
+			{
+				printf("no payload");
+			}
+			
 			
 			// print R: host:port |message|
 		}
-		printf("packet contains \"%s\"\n", buffer ) ;
 		//    and print S: host:port |message|
 		// }
 
@@ -223,6 +229,11 @@ void opensocket(int *sockfd)
 void getHostname(host_info** hostinfo, char* send_addr)
 {
 	//host_info* hp = (host_info*)malloc(sizeof(host_info*));
+	if((*hostinfo = gethostbyname(send_addr))==NULL)
+	{
+		perror("failed to get hostname");
+		exit(1);
+	}
 		
 }
 
@@ -246,7 +257,7 @@ char* parseHost(char** msg)
 	//*NOTE* send_addr shares the same memory with msg, 
 	//therefore free(msg) handles clean up of memory
 
-  printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
+//   printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
 	return send_addr;	
 }
 
@@ -270,7 +281,7 @@ char* parsePayload(char** msg,int len_of_msg)
 		memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
 		memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
 		payload[len_of_payload] = '\0'; //append null terminator
-		printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
+		// printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
 	}
 	
 	return payload;
@@ -283,7 +294,7 @@ int sendPayload(int* sockfd, char* payload, int len_of_payload, inetaddr* sender
 {
 	int numbytes_sent;
 	if((numbytes_sent=sendto(*sockfd,payload,len_of_payload,0,
-		(struct sockaddr* )&(*sender_addr),sizeof(struct sockaddr)))== -1)
+		(addr* )&(*sender_addr),sizeof(struct sockaddr)))== -1)
 	{
 		perror("failed to send packet");
 		exit(1);
