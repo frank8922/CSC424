@@ -47,12 +47,11 @@ int g_verbose = 0 ;
 int main(int argc, char * argv[]) 
 {
 
- 	int sockfd ; //socket file descriptor
-	inetaddr server_addr; //holds inet protocol, address port,
-	memset(&server_addr,0,sizeof(inetaddr));
-	inetaddr client_addr; //holds inet protocol, address port,
+ 	int listen; //socket file descriptor
+	inetaddr my_addr; //holds inet protocol, address port,
+	inetaddr their_addr; //holds inet protocol, address port,
 									// ipv4 address, sin_zero(not used).
-	host_info* clientinfo;
+	host_info* he; //Hostent obj that contains port and ip_address
 	int numbytes_sent; //holds the num of bytes written out
 	int numbytes_recv; //holds num bytes recieved
 	int ch ;
@@ -107,90 +106,76 @@ int main(int argc, char * argv[])
 	char * send_addr;
 	char * payload;
 
-	//**parse first address from message and send payload
+	
+	opensocket(&listen);
+	my_addr.sin_family = AF_INET ;
+	my_addr.sin_port = htons((short)the_port);
+	my_addr.sin_addr.s_addr = INADDR_ANY;
+	memset(&(my_addr.sin_zero),'\0',8);
+
+	if(bind(listen,(addr *)&my_addr,sizeof(addr)) == -1 ) 
+	{ perror("bind") ; exit(1) ;}
+
 	if ( msg ) 
 	{
 		// parse and send
 		len_of_msg = strlen(msg);
 
-		 send_addr = parseHost(&msg);
-		 payload = parsePayload(&msg,len_of_msg);
-		//  printf("length of payload = %d\n",strlen(payload));
-
-		 //**open socket
-		 opensocket(&sockfd);
-		 //**end open socket
+		send_addr = parseHost(&msg);
+		payload = parsePayload(&msg,len_of_msg);
+		//  printf("length of payload = %d\n",strlen(payload)); 
 
 		//**get hostname
-		// getHostname(&clientinfo,send_addr);
-		client_addr.sin_family = AF_INET;
-		client_addr.sin_port = htons(the_port);
-		if(inet_aton(send_addr,(struct in_addr*)&client_addr.sin_addr))
-		{
-			perror("failed to convert to network order");
-			exit(1);
-		}
-		memset(&(server_addr.sin_zero),'\0',8) ;
+		their_addr.sin_family = AF_INET;
+		their_addr.sin_port = htons((short)the_port);
+		inet_aton(send_addr,&their_addr.sin_addr);
+		//their_addr.sin_addr = *((struct in_addr*)he->h_addr);
+		memset(&(their_addr.sin_zero),'\0',8);
 		//**end get hostname
 
-		
-		 //**binding address to socket
-		if(bind(sockfd,(addr*)&client_addr,sizeof(addr))== -1)
-		{
-			perror("failed to bind");
-			exit(1);
-		}
-		 //**end binding address to socket
-		
-		
-		 //**send payload to address
-		 numbytes_sent = sendPayload(&sockfd,payload,strlen(payload),&client_addr);
-		printf("S: %s:%d |%s|\n",inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port),buffer);
+		//**send payload to address
+		numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
+		printf("S: %s:%d |%s|\n",send_addr,ntohs(their_addr.sin_port),payload);
 		 //**end send payload to address
-
 		
 		//  printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
 
 		 free(msg); 
 		 free(payload);
 		 n_repeat-- ; // a packet sent
+		 
 	}
-		// //**end parse first address from message and send payload
-		// server_addr.sin_family = AF_INET ;
-		// //server_addr.sin_port = htons((short)the_port);
-		// server_addr.sin_addr.s_addr = INADDR_ANY ;
-		// memset(&(server_addr.sin_zero),'\0',8) ;
-		// if(bind(listen,(addr*)&server_addr,sizeof(addr))== -1)
-		// {
-		// 	perror("failed to bind");
-		// 	exit(1);
-		// }
-	
+
+
 	while( is_forever || n_repeat ) 
 	{
+
 		
-		numbytes_recv = recvPayload(&sockfd,&server_addr,buffer,MAXMSGLEN);
-		// printf("recv %d bytes from %s\n",numbytes_recv,inet_ntoa(server_addr.sin_addr));
+		// my_addr.sin_family = AF_INET ;
+		// my_addr.sin_port = htons((short)the_port);
+		// my_addr.sin_addr.s_addr = INADDR_ANY;
+		// memset(&(my_addr.sin_zero),'\0',8);
+		// unsigned int addr_len = sizeof(inetaddr);
+		// getsockname(listen,(struct sockaddr *)&my_addr,&addr_len) ;
+		
+		numbytes_recv = recvPayload(&listen,&my_addr,buffer,MAXMSGLEN);
+		printf("recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
 		buffer[numbytes_recv]='\0';
-		printf("R: %s:%d |%s|\n",inet_ntoa(server_addr.sin_addr),ntohs(server_addr.sin_port),buffer);
+		printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer);
 		if(numbytes_recv > 0)	
 		{
 			char * buff = strdup(buffer);
 			send_addr = parseHost(&buff);
-			payload = parsePayload(&buff,strlen(buff));
+			payload = parsePayload(&buff,strlen(buffer));
 			if(strlen(payload) > 0)
 			{
 				// printf("length of payload = %d\n",strlen(payload));
 				// if something to send, {
-				if(inet_aton(send_addr,(struct in_addr*)&server_addr.sin_addr))
-				{
-					perror("failed to convert to network order");
-					exit(1);
-				}
-				numbytes_sent = sendPayload(&sockfd,payload,strlen(payload),&server_addr);
+				inet_aton(send_addr,&their_addr.sin_addr);
+				numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
 				//**end send payload to address
 				// printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
-				printf("S: %s:%d |%s|\n",inet_ntoa(server_addr.sin_addr),ntohs(server_addr.sin_port),buffer);
+				printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),buff);
 			}
 			else
 			{
@@ -206,7 +191,7 @@ int main(int argc, char * argv[])
 		n_repeat-- ;
 	}
 
-	close(sockfd); //close socket
+	close(listen); //close socket
 	return 0 ;
 }
 
@@ -269,8 +254,8 @@ char* parsePayload(char** msg,int len_of_msg)
 	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
 	int len_of_payload = len_of_msg - len_send_addr; //calculate the len of payload
 	char * payload;
-	bool no_payload = (len_of_payload < 1) ? false : true;
-	if (!no_payload)
+	bool no_payload = (len_of_payload < 1) ? true : false;
+	if (no_payload)
 	{
 		payload = (char *)malloc(sizeof(char)); //allocate space for payload
 		payload[0] = '\0';
@@ -293,8 +278,9 @@ char* parsePayload(char** msg,int len_of_msg)
 int sendPayload(int* sockfd, char* payload, int len_of_payload, inetaddr* sender_addr)
 {
 	int numbytes_sent;
+	int addr_len = sizeof(struct sockaddr);
 	if((numbytes_sent=sendto(*sockfd,payload,len_of_payload,0,
-		(addr* )&(*sender_addr),sizeof(struct sockaddr)))== -1)
+		(addr* )&(*sender_addr),addr_len))== -1)
 	{
 		perror("failed to send packet");
 		exit(1);
