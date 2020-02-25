@@ -110,7 +110,7 @@ int main(int argc, char * argv[])
 	opensocket(&listen);
 	my_addr.sin_family = AF_INET ;
 	my_addr.sin_port = htons((short)the_port);
-	my_addr.sin_addr.s_addr = INADDR_ANY;
+	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	memset(&(my_addr.sin_zero),'\0',8);
 
 	if(bind(listen,(addr *)&my_addr,sizeof(addr)) == -1 ) 
@@ -119,29 +119,30 @@ int main(int argc, char * argv[])
 	if ( msg ) 
 	{
 		// parse and send
-		len_of_msg = strlen(msg);
 
+		//*parse*
+		len_of_msg = strlen(msg);
 		send_addr = parseHost(&msg);
 		payload = parsePayload(&msg,len_of_msg);
-		//  printf("length of payload = %d\n",strlen(payload)); 
+		//printf("DEBUG:length of payload = %d\n",strlen(payload)); 
+		//*end parse*
 
-		//**get hostname
+		//*get hostname*
 		their_addr.sin_family = AF_INET;
 		their_addr.sin_port = htons((short)the_port);
 		inet_aton(send_addr,&their_addr.sin_addr);
-		//their_addr.sin_addr = *((struct in_addr*)he->h_addr);
 		memset(&(their_addr.sin_zero),'\0',8);
-		//**end get hostname
+		//*end get hostname*
 
 		//**send payload to address
 		numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
 		printf("S: %s:%d |%s|\n",send_addr,ntohs(their_addr.sin_port),payload);
 		 //**end send payload to address
 		
-		//  printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+		//printf("DEBUG:sent %d bytes to %s\n",numbytes_sent,send_addr);
 
 		 free(msg); 
-		 free(payload);
+		 free(payload);//free payload
 		 n_repeat-- ; // a packet sent
 		 
 	}
@@ -149,45 +150,31 @@ int main(int argc, char * argv[])
 
 	while( is_forever || n_repeat ) 
 	{
-
-		
-		// my_addr.sin_family = AF_INET ;
-		// my_addr.sin_port = htons((short)the_port);
-		// my_addr.sin_addr.s_addr = INADDR_ANY;
-		// memset(&(my_addr.sin_zero),'\0',8);
-		// unsigned int addr_len = sizeof(inetaddr);
-		// getsockname(listen,(struct sockaddr *)&my_addr,&addr_len) ;
 		
 		numbytes_recv = recvPayload(&listen,&my_addr,buffer,MAXMSGLEN);
-		printf("recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
+		// printf("DEBUG:recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
 		buffer[numbytes_recv]='\0';
-		printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer);
-		if(numbytes_recv > 0)	
+		printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); // print R: host:port |message|
+		char * buff = strdup(buffer);
+		send_addr = parseHost(&buff);
+		payload = parsePayload(&buff,strlen(buffer));
+		if(strlen(payload)> 0)
 		{
-			char * buff = strdup(buffer);
-			send_addr = parseHost(&buff);
-			payload = parsePayload(&buff,strlen(buffer));
-			if(strlen(payload) > 0)
-			{
-				// printf("length of payload = %d\n",strlen(payload));
-				// if something to send, {
-				inet_aton(send_addr,&their_addr.sin_addr);
-				numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
-				//**end send payload to address
-				// printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
-				printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),buff);
-			}
-			else
-			{
-				printf("no payload");
-			}
-			
-			
-			// print R: host:port |message|
+			// printf("DEBUG:length of payload = %d\n",strlen(payload));
+			//*send payload to address*
+			inet_aton(send_addr,&their_addr.sin_addr);
+			numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
+			//*end send payload to address*
+			// printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
+			printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),buff); //and print S: host:port |message|
 		}
-		//    and print S: host:port |message|
-		// }
-
+		else
+		{
+			printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),"\0"); //and print S: host:port |message|
+		}
+			
+		free(payload);//free payload
+		free(buff);//free buffer
 		n_repeat-- ;
 	}
 
@@ -250,18 +237,18 @@ char* parseHost(char** msg)
  * return: payload;
  */
 char* parsePayload(char** msg,int len_of_msg)
-{
-	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
-	int len_of_payload = len_of_msg - len_send_addr; //calculate the len of payload
+{	
+	int len_send_addr;
 	char * payload;
-	bool no_payload = (len_of_payload < 1) ? true : false;
-	if (no_payload)
-	{
+	int len_of_payload;
+	if((len_send_addr = strcspn(*msg,":")) == len_of_msg) //if there are chars to parse;
+	{		
 		payload = (char *)malloc(sizeof(char)); //allocate space for payload
 		payload[0] = '\0';
 	}
 	else
 	{
+		len_of_payload = len_of_msg - len_send_addr; //calculate the len of payload
 		payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
 		memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
 		memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
