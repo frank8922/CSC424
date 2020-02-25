@@ -95,7 +95,7 @@ int main(int argc, char * argv[])
 	}
 
 	the_port = atoi(*argv) ; //convert to integer and store in the_port
-	printf("port: %d\n",the_port);
+	//printf("DEBUG:port: %d\n",the_port);
 	assert(the_port) ;
 
 	is_forever = (n_repeat == 0) ; //flag to terminate sending packets, 
