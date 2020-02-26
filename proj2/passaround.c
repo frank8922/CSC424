@@ -38,9 +38,9 @@ typedef struct hostent host_info;
 void opensocket(int *sockfd);
 void getHostname(host_info** hostinfo, char* send_addr);
 char* parseHost(char** msg);
-char* parsePayload(char** msg,int len_of_msg);
-int sendPayload(int *sockfd, char* payload, int len_of_payload, inetaddr* sender_addr);
-int recvPayload(int *sockfd,inetaddr* recv_addr,void* buffer,int buffer_len);
+char* parsePayload(char** msg);
+int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
+int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer,int buffer_len);
 
 int g_verbose = 0 ;
 
@@ -50,8 +50,9 @@ int main(int argc, char * argv[])
  	int listen; //socket file descriptor
 	inetaddr my_addr; //holds inet protocol, address port,
 	inetaddr their_addr; //holds inet protocol, address port,
-									// ipv4 address, sin_zero(not used).
 	host_info* he; //Hostent obj that contains port and ip_address
+	struct addrinfo hints;
+	struct addrinfo *servinfo;
 	int numbytes_sent; //holds the num of bytes written out
 	int numbytes_recv; //holds num bytes recieved
 	int ch ;
@@ -59,8 +60,9 @@ int main(int argc, char * argv[])
 	int the_port = 0 ;
 	int n_repeat = N_REPEAT_DEFAULT ; //
 	char * msg = NULL ; //ponter to the msg
-	char buffer[MAXMSGLEN] = { 0 }; //initialize buffer to 0;
 	int is_forever = 0 ;
+	char * port; 
+	char * buffer = malloc(MAXMSGLEN * sizeof(char));//initialize buffer to 0;
 	
 	assert(sizeof(short)==2) ; 
 
@@ -93,14 +95,12 @@ int main(int argc, char * argv[])
 		fprintf(stderr,"%s\n",USAGE_MESSAGE) ;
 		exit(0) ;
 	}
-
+	port = (*argv); //get the port as a string
 	the_port = atoi(*argv) ; //convert to integer and store in the_port
-	//printf("DEBUG:port: %d\n",the_port);
 	assert(the_port) ;
 
 	is_forever = (n_repeat == 0) ; //flag to terminate sending packets, 
 								   //if n_repeat is 0, loop infinitely 
-
 
 	int len_of_msg;
 	char * send_addr;
@@ -108,13 +108,20 @@ int main(int argc, char * argv[])
 
 	
 	opensocket(&listen);
-	my_addr.sin_family = AF_INET ;
-	my_addr.sin_port = htons((short)the_port);
-	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	memset(&hints,0,sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
 	memset(&(my_addr.sin_zero),'\0',8);
 
-	if(bind(listen,(addr *)&my_addr,sizeof(addr)) == -1 ) 
+	if(getaddrinfo(NULL,port,&hints,&servinfo)!=0){
+		perror("getaddrinfo");
+		exit(1);
+	}
+
+	if(bind(listen,servinfo->ai_addr,servinfo->ai_addrlen) == -1 ) 
 	{ perror("bind") ; exit(1) ;}
+
 
 	if ( msg ) 
 	{
@@ -123,61 +130,93 @@ int main(int argc, char * argv[])
 		//*parse*
 		len_of_msg = strlen(msg);
 		send_addr = parseHost(&msg);
-		payload = parsePayload(&msg,len_of_msg);
-		//printf("DEBUG:length of payload = %d\n",strlen(payload)); 
+		payload = parsePayload(&msg);
+		// printf("DEBUG:length of payload = %d\n",strlen(payload)); 
 		//*end parse*
 
-		//*get hostname*
-		their_addr.sin_family = AF_INET;
-		their_addr.sin_port = htons((short)the_port);
-		inet_aton(send_addr,&their_addr.sin_addr);
-		memset(&(their_addr.sin_zero),'\0',8);
-		//*end get hostname*
+		if(strlen(send_addr) > 0)
+		{
+			//*get hostname*
+			their_addr.sin_family = AF_INET;
+			their_addr.sin_port = htons((short)the_port);
+			inet_aton(send_addr,&their_addr.sin_addr);
+			memset(&(their_addr.sin_zero),'\0',8);
+			//*end get hostname*
+		}
 
-		//**send payload to address
-		numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
-		printf("S: %s:%d |%s|\n",send_addr,ntohs(their_addr.sin_port),payload);
-		 //**end send payload to address
-		
-		//printf("DEBUG:sent %d bytes to %s\n",numbytes_sent,send_addr);
+		if (strlen(payload) > 0)
+		{
+
+			//**send payload to address
+			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
+			getHostname(&he,send_addr);
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
+			//**end send payload to address
+			
+		}
 
 		 free(msg); 
 		 free(payload);//free payload
+		 free(send_addr);
+		freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
 	}
-
-
+		
 	while( is_forever || n_repeat ) 
 	{
-		
-		numbytes_recv = recvPayload(&listen,&my_addr,buffer,MAXMSGLEN);
+		buffer[0]='\0';
+		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer,MAXMSGLEN);
 		// printf("DEBUG:recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
-		buffer[numbytes_recv]='\0';
-		printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); // print R: host:port |message|
-		char * buff = strdup(buffer);
-		send_addr = parseHost(&buff);
-		payload = parsePayload(&buff,strlen(buffer));
-		if(strlen(payload)> 0)
-		{
-			// printf("DEBUG:length of payload = %d\n",strlen(payload));
-			//*send payload to address*
-			inet_aton(send_addr,&their_addr.sin_addr);
-			numbytes_sent = sendPayload(&listen,payload,strlen(payload),&their_addr);
-			//*end send payload to address*
-			// printf("sent %d bytes to %s\n",numbytes_sent,send_addr);
-			printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),buff); //and print S: host:port |message|
-		}
-		else
-		{
-			printf("S: %s:%d |%s|\n",inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port),"\0"); //and print S: host:port |message|
-		}
-			
-		free(payload);//free payload
-		free(buff);//free buffer
-		n_repeat-- ;
-	}
 
+		if(numbytes_recv > 0) //if we recieved data
+		{
+
+			send_addr = parseHost(&buffer);
+			// printf("DEBUG:send_addr=%s\n",send_addr);
+			payload = parsePayload(&buffer);
+			// printf("DEBUG:payload=%s\n",payload);
+
+			// print R: host:port |message|
+			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
+
+			if(strlen(send_addr) > 0) //if send address exists
+			{
+				memset(&hints,0,sizeof(hints));
+				hints.ai_family = AF_INET;
+				hints.ai_socktype = SOCK_DGRAM;
+				memset(&(their_addr.sin_zero),'\0',8);
+				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0)
+				{
+					perror("getaddrinfo");
+					exit(1);
+				}
+
+				//*send payload to address*
+				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
+			}
+				
+
+					
+		}
+
+		// printf("DEBUG:length of payload = %d\n",strlen(payload));
+
+		if(numbytes_sent > 0) //if payload sent
+		{
+			getHostname(&he,send_addr);
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); //and print S: host:port |message|
+		}
+		
+
+		n_repeat-- ;
+
+		free(payload);//free payload
+		free(send_addr);//free send_addr
+		freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
+		
+	}
+	free(buffer); //free the buffer memory
 	close(listen); //close socket
 	return 0 ;
 }
@@ -196,7 +235,7 @@ void opensocket(int *sockfd)
 }
 
 /* params: pointer to hostent struct and char array of requested hostname
- * return: true if able to get hostname, false otherwise.
+ * throws error and exits if error.
  */
 void getHostname(host_info** hostinfo, char* send_addr)
 {
@@ -214,46 +253,45 @@ void getHostname(host_info** hostinfo, char* send_addr)
  */
 char* parseHost(char** msg)
 {		
-	int len_send_addr = strcspn(*msg,":"); //parse length of send address;
-	char* send_addr = malloc(len_send_addr * sizeof(char));  
-	if (len_send_addr < 1)
-	{	
-		send_addr = *msg;
+	char * p, *send_addr;
+	if((p = strchr(*msg,':')) == NULL)
+	{
+		// printf("DEBUG:parseHost():send_addr=%s\n",*msg);
+		return *msg;
 	}
 	else
 	{
-		send_addr = strtok(*msg,":"); 
+		*p = '\0';
+		// printf("DEBUG:parseHost():send_addr=%s\n",*msg);
+		send_addr = strdup(*msg);
+		*p = ':';
+		return send_addr;
 	}
-  
-   	//parse and store send address
-	//*NOTE* send_addr shares the same memory with msg, 
-	//therefore free(msg) handles clean up of memory
-
-//   printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
-	return send_addr;	
+   	
+	//printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
 }
+
 
 /* params: msg to parse, len of msg
  * return: payload;
  */
-char* parsePayload(char** msg,int len_of_msg)
+char* parsePayload(char** msg)
 {	
-	int len_send_addr;
 	char * payload;
-	int len_of_payload;
-	if((len_send_addr = strcspn(*msg,":")) == len_of_msg) //if there are chars to parse;
-	{		
-		payload = (char *)malloc(sizeof(char)); //allocate space for payload
-		payload[0] = '\0';
+	char * p;
+	int len_payload;
+	if((p = strchr(*msg,':')) == NULL)
+	{
+		payload = malloc(sizeof(char));
+		payload = '\0';
 	}
 	else
 	{
-		len_of_payload = len_of_msg - len_send_addr; //calculate the len of payload
-		payload = (char *)malloc(len_of_payload * sizeof(char)); //allocate space for payload
-		memset(payload,'\0',len_of_payload * sizeof(*payload)); //clear memory
-		memcpy(payload,&((*msg)[len_send_addr+1]),sizeof(char) * len_of_payload-1); //extract and copy only payload from orignal msg
-		payload[len_of_payload] = '\0'; //append null terminator
-		// printf("DEBUG:payload=%s len=%d\n",payload,len_of_payload);
+			len_payload = strlen(p)-1;
+			payload = malloc(len_payload-1 * sizeof(char));
+			memset(payload,'\0',len_payload-1 * sizeof(char)); //clear memory
+			memcpy(payload,&(p)[1],sizeof(char) * len_payload); //extract and copy only payload from orignal msg
+			payload[len_payload] = '\0'; //append null terminator
 	}
 	
 	return payload;
@@ -262,7 +300,7 @@ char* parsePayload(char** msg,int len_of_msg)
 /* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
  * return: numbytes if successful, throws error and exits otherwise.
  */
-int sendPayload(int* sockfd, char* payload, int len_of_payload, inetaddr* sender_addr)
+int sendPayload(int* sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr)
 {
 	int numbytes_sent;
 	int addr_len = sizeof(struct sockaddr);
@@ -275,12 +313,12 @@ int sendPayload(int* sockfd, char* payload, int len_of_payload, inetaddr* sender
 	return numbytes_sent;
 }
 
-int recvPayload(int *sockfd,inetaddr *recv_addr,void* buffer,int buffer_len)
+int recvPayload(int *sockfd,struct sockaddr *recv_addr,char** buffer,int buffer_len)
 {
 	int numbytes_recv;
 	int recv_addr_len = sizeof(addr);
 	
-	if((numbytes_recv=recvfrom(*sockfd,buffer,MAXMSGLEN-1,0,
+	if((numbytes_recv=recvfrom(*sockfd,*buffer,MAXMSGLEN-1,0,
 		(addr *)&(*recv_addr),&recv_addr_len))== -1)
 	{
 			perror("recvfrom");
