@@ -142,14 +142,14 @@ int main(int argc, char * argv[])
 			//*end get hostname*
 		}
 
-		if (strlen(payload) > 0)
-		{
+		// if (strlen(payload) > 0)
+		// {
 			//**send payload to address
 			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
 			getHostname(&he,send_addr);
 			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
 			//**end send payload to address
-		}
+		// }
 
 		 free(msg); 
 		//  free(payload);//free payload
@@ -160,7 +160,6 @@ int main(int argc, char * argv[])
 		
 	while( is_forever || n_repeat ) 
 	{
-		buffer[0]='\0';
 		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer,MAXMSGLEN);
 		// printf("DEBUG:recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
 
@@ -174,25 +173,26 @@ int main(int argc, char * argv[])
 			payload = parsePayload(&buffer);
 			// printf("DEBUG:payload=%s\n",payload);
 
-			if(strlen(send_addr) > 0) //if send address exists
+			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
 			{
 				memset(&hints,0,sizeof(hints));
 				hints.ai_family = AF_INET;
 				hints.ai_socktype = SOCK_DGRAM;
 				memset(&(their_addr.sin_zero),'\0',8);
-				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
-				{
-					perror("getaddrinfo");
-					exit(1);
-				}
+			}
 
+			if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
+			{
+				perror("getaddrinfo");
+				exit(1);
+			}
+
+			if(payload != NULL) //if something to send
+			{
 				//*send payload to address*
 				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
 			}
-					
 		}
-
-		// printf("DEBUG:length of payload = %d\n",strlen(payload));
 
 		//if payload sent
 		getHostname(&he,send_addr);
@@ -204,7 +204,7 @@ int main(int argc, char * argv[])
 		
 	}
 	free(buffer); //free the buffer memory
-	free(payload);//free payload
+	//free(payload);//free payload
 	close(listen); //close socket
 	return 0 ;
 }
@@ -264,19 +264,9 @@ char* parsePayload(char** msg)
 {	
 	char * payload; char *p;
 	int len = strlen(*msg);
-	payload = malloc(len * sizeof(char));
-	
-	while(p != NULL)
-	{
-		p = strtok(NULL,"");
-		if(p != NULL)
-		{ strcat(payload,p); }
-	}
-	
-	if(len == 0)
-	{ strcpy(payload,"\0"); }
+	p = strtok(NULL,"");
 
-	return payload;
+	return p;
 }
 
 /* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
