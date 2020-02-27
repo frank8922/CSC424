@@ -129,7 +129,6 @@ int main(int argc, char * argv[])
 		//*parse*
 		send_addr = parseHost(&msg);
 		payload = parsePayload(&msg);
-		// printf("DEBUG:length of payload = %d\n",strlen(payload)); 
 		//*end parse*
 
 		if(strlen(send_addr) > 0)
@@ -142,17 +141,13 @@ int main(int argc, char * argv[])
 			//*end get hostname*
 		}
 
-		// if (strlen(payload) > 0)
-		// {
-			//**send payload to address
-			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
-			getHostname(&he,send_addr);
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
-			//**end send payload to address
-		// }
+		//**send payload to address
+		numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
+		getHostname(&he,send_addr);
+		printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
+		//**end send payload to address
 
 		 free(msg); 
-		//  free(payload);//free payload
 		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
@@ -161,7 +156,6 @@ int main(int argc, char * argv[])
 	while( is_forever || n_repeat ) 
 	{
 		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer,MAXMSGLEN);
-		// printf("DEBUG:recv %d bytes from %s\n",numbytes_recv,inet_ntoa(my_addr.sin_addr));
 
 		if(numbytes_recv > 0) //if we recieved data
 		{
@@ -169,9 +163,7 @@ int main(int argc, char * argv[])
 			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
 
 			send_addr = parseHost(&buffer);
-			// printf("DEBUG:send_addr=%s\n",send_addr);
 			payload = parsePayload(&buffer);
-			// printf("DEBUG:payload=%s\n",payload);
 
 			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
 			{
@@ -204,7 +196,6 @@ int main(int argc, char * argv[])
 		
 	}
 	free(buffer); //free the buffer memory
-	//free(payload);//free payload
 	close(listen); //close socket
 	return 0 ;
 }
