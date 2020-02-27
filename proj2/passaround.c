@@ -188,7 +188,15 @@ int main(int argc, char * argv[])
 
 		//if payload sent
 		getHostname(&he,send_addr);
-		printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); //and print S: host:port |message|
+		//print S: host:port |message|
+		if (payload == NULL)
+		{
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
+		}
+		else
+		{
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
+		}
 		
 		n_repeat-- ;
 
