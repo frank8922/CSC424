@@ -102,7 +102,6 @@ int main(int argc, char * argv[])
 	is_forever = (n_repeat == 0) ; //flag to terminate sending packets, 
 								   //if n_repeat is 0, loop infinitely 
 
-	int len_of_msg;
 	char * send_addr;
 	char * payload;
 
@@ -128,7 +127,6 @@ int main(int argc, char * argv[])
 		// parse and send
 
 		//*parse*
-		len_of_msg = strlen(msg);
 		send_addr = parseHost(&msg);
 		payload = parsePayload(&msg);
 		// printf("DEBUG:length of payload = %d\n",strlen(payload)); 
@@ -146,19 +144,16 @@ int main(int argc, char * argv[])
 
 		if (strlen(payload) > 0)
 		{
-
 			//**send payload to address
 			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
 			getHostname(&he,send_addr);
 			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
 			//**end send payload to address
-			
 		}
 
 		 free(msg); 
-		 free(payload);//free payload
-		 free(send_addr);
-		freeaddrinfo(servinfo); 
+		//  free(payload);//free payload
+		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
 	}
@@ -171,14 +166,13 @@ int main(int argc, char * argv[])
 
 		if(numbytes_recv > 0) //if we recieved data
 		{
+			// print R: host:port |message|
+			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
 
 			send_addr = parseHost(&buffer);
 			// printf("DEBUG:send_addr=%s\n",send_addr);
 			payload = parsePayload(&buffer);
 			// printf("DEBUG:payload=%s\n",payload);
-
-			// print R: host:port |message|
-			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
 
 			if(strlen(send_addr) > 0) //if send address exists
 			{
@@ -186,7 +180,7 @@ int main(int argc, char * argv[])
 				hints.ai_family = AF_INET;
 				hints.ai_socktype = SOCK_DGRAM;
 				memset(&(their_addr.sin_zero),'\0',8);
-				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0)
+				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
 				{
 					perror("getaddrinfo");
 					exit(1);
@@ -195,28 +189,22 @@ int main(int argc, char * argv[])
 				//*send payload to address*
 				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
 			}
-				
-
 					
 		}
 
 		// printf("DEBUG:length of payload = %d\n",strlen(payload));
 
-		if(numbytes_sent > 0) //if payload sent
-		{
-			getHostname(&he,send_addr);
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); //and print S: host:port |message|
-		}
+		//if payload sent
+		getHostname(&he,send_addr);
+		printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); //and print S: host:port |message|
 		
-
 		n_repeat-- ;
 
-		free(payload);//free payload
-		free(send_addr);//free send_addr
 		freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 		
 	}
 	free(buffer); //free the buffer memory
+	free(payload);//free payload
 	close(listen); //close socket
 	return 0 ;
 }
@@ -252,23 +240,20 @@ void getHostname(host_info** hostinfo, char* send_addr)
  * return: sender address
  */
 char* parseHost(char** msg)
-{		
-	char * p, *send_addr;
-	if((p = strchr(*msg,':')) == NULL)
+{
+	char * send_addr;
+	if(strlen(*msg) > 0)
 	{
-		// printf("DEBUG:parseHost():send_addr=%s\n",*msg);
-		return *msg;
+		send_addr = strtok(*msg,":");
+		if(send_addr == NULL)
+		{ return *msg; }
 	}
 	else
 	{
-		*p = '\0';
-		// printf("DEBUG:parseHost():send_addr=%s\n",*msg);
-		send_addr = strdup(*msg);
-		*p = ':';
-		return send_addr;
+		return *msg;
 	}
-   	
-	//printf("DEBUG:send_addr=%s n=%d\n",send_addr,len_send_addr);
+	// printf("DEBUG:send_addr=%s\n",send_addr);
+	return send_addr;
 }
 
 
@@ -277,23 +262,20 @@ char* parseHost(char** msg)
  */
 char* parsePayload(char** msg)
 {	
-	char * payload;
-	char * p;
-	int len_payload;
-	if((p = strchr(*msg,':')) == NULL)
+	char * payload; char *p;
+	int len = strlen(*msg);
+	payload = malloc(len * sizeof(char));
+	
+	while(p != NULL)
 	{
-		payload = malloc(sizeof(char));
-		payload = '\0';
-	}
-	else
-	{
-			len_payload = strlen(p)-1;
-			payload = malloc(len_payload-1 * sizeof(char));
-			memset(payload,'\0',len_payload-1 * sizeof(char)); //clear memory
-			memcpy(payload,&(p)[1],sizeof(char) * len_payload); //extract and copy only payload from orignal msg
-			payload[len_payload] = '\0'; //append null terminator
+		p = strtok(NULL,"");
+		if(p != NULL)
+		{ strcat(payload,p); }
 	}
 	
+	if(len == 0)
+	{ strcpy(payload,"\0"); }
+
 	return payload;
 }
 
