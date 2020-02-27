@@ -117,6 +117,10 @@ int main(int argc, char * argv[])
 		perror("getaddrinfo");
 		exit(1);
 	}
+	
+	if (setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)) == -1) { perror("setsockopt");
+		exit(1);
+	}
 
 	if(bind(listen,servinfo->ai_addr,servinfo->ai_addrlen) == -1 ) 
 	{ perror("bind") ; exit(1) ;}
