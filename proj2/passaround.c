@@ -186,7 +186,6 @@ int main(int argc, char * argv[])
 			}
 		}
 
-		//if payload sent
 		getHostname(&he,send_addr);
 		//print S: host:port |message|
 		if (payload == NULL)
