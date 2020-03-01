@@ -63,6 +63,7 @@ int main(int argc, char * argv[])
 	int is_forever = 0 ;
 	char * port; 
 	char * buffer = malloc(MAXMSGLEN * sizeof(char));//initialize buffer to 0;
+	memset(buffer,'\0',MAXMSGLEN);
 	
 	assert(sizeof(short)==2) ; 
 
@@ -144,13 +145,14 @@ int main(int argc, char * argv[])
 			inet_aton(send_addr,&their_addr.sin_addr);
 			memset(&(their_addr.sin_zero),'\0',8);
 			//*end get hostname*
+
+			//**send payload to address
+			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
+			getHostname(&he,send_addr);
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
+			//**end send payload to address
 		}
 
-		//**send payload to address
-		numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
-		getHostname(&he,send_addr);
-		printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
-		//**end send payload to address
 
 		 free(msg); 
 		 free(send_addr);
@@ -186,16 +188,17 @@ int main(int argc, char * argv[])
 					exit(1);
 				}
 				getHostname(&he,send_addr);
+				//if something to send and print S: host:port |message|
+				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
+				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
+				//memset(payload,'\0',strlen(payload));
+				free(send_addr);
+				if(strcmp(payload,"\0") != 0)
+					free(payload);
+				freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 			}
 		
-			//if something to send and print S: host:port |message|
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
-			numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
-			//memset(payload,'\0',strlen(payload));
-			free(send_addr);
-			if(strcmp(payload,"\0") != 0)
-				free(payload);
-			freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
+			
 		}
 		n_repeat-- ;
 	}
@@ -244,6 +247,7 @@ char* parseHost(char** msg)
 		
 		for(len = 0; len < strlen(*msg); len++);
 		send_addr = malloc(len+1 * sizeof(char));
+		memset(send_addr,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ send_addr[i] = temp[i]; }
 		send_addr [len+1] = '\0';
@@ -271,6 +275,7 @@ char* parsePayload(char** msg)
 	{
 		for(i = 0; len < strlen(p); len++);
 		payload = malloc(len+1 * sizeof(char));
+		memset(payload,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ payload[i] = p[i]; }
 		payload[len+1] = '\0';
