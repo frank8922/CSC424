@@ -118,7 +118,8 @@ int main(int argc, char * argv[])
 		exit(1);
 	}
 	
-	if (setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)) == -1) { perror("setsockopt");
+	if (setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)) == -1) { 
+		perror("setsockopt");
 		exit(1);
 	}
 
@@ -152,6 +153,8 @@ int main(int argc, char * argv[])
 		//**end send payload to address
 
 		 free(msg); 
+		 free(send_addr);
+		 free(payload);
 		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
@@ -165,7 +168,7 @@ int main(int argc, char * argv[])
 		{
 			// print R: host:port |message|
 			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
-
+			
 			send_addr = parseHost(&buffer);
 			payload = parsePayload(&buffer);
 
@@ -175,34 +178,40 @@ int main(int argc, char * argv[])
 				hints.ai_family = AF_INET;
 				hints.ai_socktype = SOCK_DGRAM;
 				memset(&(their_addr.sin_zero),'\0',8);
+
+				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
+				{
+					perror("getaddrinfo");
+					exit(1);
+				}
+
 			}
 
-			if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
+			getHostname(&he,send_addr);
+			
+			
+			
+			//print S: host:port |message|
+			if (payload == NULL)
 			{
-				perror("getaddrinfo");
-				exit(1);
+				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
+			}
+			else
+			{
+				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
 			}
 
 			if(payload != NULL) //if something to send
 			{
 				//*send payload to address*
 				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
+				memset(payload,'\0',strlen(payload));
 			}
 		}
 
-		getHostname(&he,send_addr);
-		//print S: host:port |message|
-		if (payload == NULL)
-		{
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
-		}
-		else
-		{
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
-		}
-		
 		n_repeat-- ;
-
+		free(send_addr);
+		free(payload);
 		freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 		
 	}
@@ -243,18 +252,26 @@ void getHostname(host_info** hostinfo, char* send_addr)
  */
 char* parseHost(char** msg)
 {
-	char * send_addr;
-	if(strlen(*msg) > 0)
+	char * send_addr, *temp;
+	int i, len;
+
+	if((temp = strtok(*msg,":")) != NULL)
 	{
-		send_addr = strtok(*msg,":");
-		if(send_addr == NULL)
-		{ return *msg; }
+		
+		for(len = 0; len < strlen(*msg); len++);
+		send_addr = malloc(len+1 * sizeof(char));
+		for(i = 0; i != len; i++)
+		{ send_addr[i] = temp[i]; }
+		send_addr [len+1] = '\0';
+
+		
 	}
 	else
 	{
-		return *msg;
+		send_addr = malloc(sizeof(char));
+		send_addr = '\0';
 	}
-	// printf("DEBUG:send_addr=%s\n",send_addr);
+	
 	return send_addr;
 }
 
@@ -265,10 +282,22 @@ char* parseHost(char** msg)
 char* parsePayload(char** msg)
 {	
 	char * payload; char *p;
-	int len = strlen(*msg);
-	p = strtok(NULL,"");
-
-	return p;
+	int i, len;
+	if((p = strtok(NULL,"")) != NULL)
+	{
+		for(i = 0; len < strlen(p); len++);
+		payload = malloc(len+1 * sizeof(char));
+		for(i = 0; i != len; i++)
+		{ payload[i] = p[i]; }
+		payload[len+1] = '\0';
+	}
+	else
+	{
+		payload = malloc(sizeof(char));
+		payload = '\0';
+	}
+	
+	return payload;
 }
 
 /* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
