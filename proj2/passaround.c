@@ -154,7 +154,7 @@ int main(int argc, char * argv[])
 
 		 free(msg); 
 		 free(send_addr);
-		 free(payload);
+		 //free(payload);
 		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
@@ -184,32 +184,18 @@ int main(int argc, char * argv[])
 					perror("getaddrinfo");
 					exit(1);
 				}
-
+				getHostname(&he,send_addr);
 			}
-
-			getHostname(&he,send_addr);
-			
-			
-			
-			
-			if(payload != NULL) //if something to send and print S: host:port |message|
-			{
-				//*send payload to address*
-				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
-				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
-				//memset(payload,'\0',strlen(payload));
-				free(send_addr);
-				free(payload);
-			}
-			else
-			{
-				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
-			}
-		}
-
-		n_repeat-- ;
-		freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 		
+			//if something to send and print S: host:port |message|
+			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
+			numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
+			//memset(payload,'\0',strlen(payload));
+			free(send_addr);
+			free(payload);
+			freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
+		}
+		n_repeat-- ;
 	}
 	free(buffer); //free the buffer memory
 	close(listen); //close socket
@@ -265,7 +251,7 @@ char* parseHost(char** msg)
 	else
 	{
 		send_addr = malloc(sizeof(char));
-		send_addr = '\0';
+		send_addr = "\0";
 	}
 	
 	return send_addr;
@@ -290,7 +276,7 @@ char* parsePayload(char** msg)
 	else
 	{
 		payload = malloc(sizeof(char));
-		payload = '\0';
+		payload = "\0";
 	}
 	
 	return payload;
