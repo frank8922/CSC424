@@ -154,7 +154,7 @@ int main(int argc, char * argv[])
 
 		 free(msg); 
 		 free(send_addr);
-		 //free(payload);
+		 free(payload);
 		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
