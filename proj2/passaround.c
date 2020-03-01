@@ -191,27 +191,23 @@ int main(int argc, char * argv[])
 			
 			
 			
-			//print S: host:port |message|
-			if (payload == NULL)
+			
+			if(payload != NULL) //if something to send and print S: host:port |message|
 			{
-				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
+				//*send payload to address*
+				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
+				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
+				//memset(payload,'\0',strlen(payload));
+				free(send_addr);
+				free(payload);
 			}
 			else
 			{
-				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
-			}
-
-			if(payload != NULL) //if something to send
-			{
-				//*send payload to address*
-				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
-				memset(payload,'\0',strlen(payload));
+				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),""); 
 			}
 		}
 
 		n_repeat-- ;
-		free(send_addr);
-		free(payload);
 		freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 		
 	}
