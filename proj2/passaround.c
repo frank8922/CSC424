@@ -154,7 +154,8 @@ int main(int argc, char * argv[])
 
 		 free(msg); 
 		 free(send_addr);
-		 free(payload);
+		 if(strcmp(payload,"\0") != 0)
+			free(payload);
 		 freeaddrinfo(servinfo); 
 		 n_repeat-- ; // a packet sent
 		 
@@ -192,7 +193,8 @@ int main(int argc, char * argv[])
 			numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
 			//memset(payload,'\0',strlen(payload));
 			free(send_addr);
-			free(payload);
+			if(strcmp(payload,"\0") != 0)
+				free(payload);
 			freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 		}
 		n_repeat-- ;
