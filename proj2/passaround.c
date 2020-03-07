@@ -37,6 +37,9 @@ typedef struct hostent host_info;
 
 void opensocket(int *sockfd);
 void getHostname(host_info** hostinfo, char* send_addr);
+void getSenderHostname(inetaddr *,char*,int);
+void setSendAddrInfo(struct addrinfo *hints,inetaddr *their_addr);
+void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrinfo **servinfo);
 char* parseHost(char** msg);
 char* parsePayload(char** msg);
 int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
@@ -139,12 +142,8 @@ int main(int argc, char * argv[])
 
 		if(strlen(send_addr) > 0)
 		{
-			//*get hostname*
-			their_addr.sin_family = AF_INET;
-			their_addr.sin_port = htons((short)the_port);
-			inet_aton(send_addr,&their_addr.sin_addr);
-			memset(&(their_addr.sin_zero),'\0',8);
-			//*end get hostname*
+			
+			getSenderHostname(&their_addr,send_addr,the_port);
 
 			//**send payload to address
 			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
@@ -177,16 +176,9 @@ int main(int argc, char * argv[])
 
 			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
 			{
-				memset(&hints,0,sizeof(hints));
-				hints.ai_family = AF_INET;
-				hints.ai_socktype = SOCK_DGRAM;
-				memset(&(their_addr.sin_zero),'\0',8);
-
-				if(getaddrinfo(send_addr,port,&hints,&servinfo)!=0) //set the address info for the sender
-				{
-					perror("getaddrinfo");
-					exit(1);
-				}
+				
+				setSendAddrInfo(&hints,&their_addr);
+				getAddrInfo(send_addr,port,&hints,&servinfo);
 				getHostname(&he,send_addr);
 				//if something to send and print S: host:port |message|
 				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
@@ -232,6 +224,34 @@ void getHostname(host_info** hostinfo, char* send_addr)
 		exit(1);
 	}
 		
+}
+
+void getSenderHostname(inetaddr *their_addr,char* send_addr,int port)
+{
+	//*get hostname*
+	their_addr->sin_family = AF_INET;
+	their_addr->sin_port = htons((short)port);
+	inet_aton(send_addr,&(*their_addr).sin_addr);
+	memset(&(*their_addr->sin_zero),'\0',8);
+	//*end get hostname*
+}
+
+void setSendAddrInfo(struct addrinfo *hints,inetaddr *their_addr)
+{
+
+	memset(&(*hints),0,sizeof(*hints));
+	hints->ai_family = AF_INET;
+	hints->ai_socktype = SOCK_DGRAM;
+	memset(&(*their_addr->sin_zero),'\0',8);
+}
+
+void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrinfo **servinfo)
+{
+	if(getaddrinfo(send_addr,port,hints,servinfo)!=0) //set the address info for the sender
+	{
+					perror("getaddrinfo");
+					exit(1);
+	}
 }
 
 /* params: msg to parse containing host
