@@ -41,7 +41,7 @@ void getSenderHostname(inetaddr *,char*,int);
 void setSendAddrInfo(struct addrinfo *hints,inetaddr *their_addr);
 void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrinfo **servinfo);
 char* parseHost(char** msg);
-char* parsePayload(char** msg);
+char* parsePayload();
 int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
 int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer,int buffer_len);
 
@@ -137,7 +137,7 @@ int main(int argc, char * argv[])
 
 		//*parse*
 		send_addr = parseHost(&msg);
-		payload = parsePayload(&msg);
+		payload = parsePayload();
 		//*end parse*
 
 		if(strlen(send_addr) > 0)
@@ -172,7 +172,7 @@ int main(int argc, char * argv[])
 			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
 			
 			send_addr = parseHost(&buffer);
-			payload = parsePayload(&buffer);
+			payload = parsePayload();
 
 			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
 			{
@@ -284,10 +284,8 @@ char* parseHost(char** msg)
 }
 
 
-/* params: msg to parse, len of msg
- * return: payload;
- */
-char* parsePayload(char** msg)
+/* return: payload */
+char* parsePayload()
 {	
 	char * payload; char *p;
 	int i, len;
