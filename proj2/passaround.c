@@ -43,7 +43,7 @@ void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrin
 char* parseHost(char** msg);
 char* parsePayload();
 int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
-int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer,int buffer_len);
+int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer);
 
 int g_verbose = 0 ;
 
@@ -164,7 +164,7 @@ int main(int argc, char * argv[])
 		
 	while( is_forever || n_repeat ) 
 	{
-		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer,MAXMSGLEN);
+		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer);
 
 		if(numbytes_recv > 0) //if we recieved data
 		{
@@ -288,7 +288,7 @@ char* parseHost(char** msg)
 char* parsePayload()
 {	
 	char * payload; char *p;
-	int i, len;
+	int i, len = 0;
 	if((p = strtok(NULL,"")) != NULL)
 	{
 		for(i = 0; len < strlen(p); len++);
@@ -323,7 +323,7 @@ int sendPayload(int* sockfd, char* payload, int len_of_payload, struct sockaddr*
 	return numbytes_sent;
 }
 
-int recvPayload(int *sockfd,struct sockaddr *recv_addr,char** buffer,int buffer_len)
+int recvPayload(int *sockfd,struct sockaddr *recv_addr,char** buffer)
 {
 	int numbytes_recv;
 	int recv_addr_len = sizeof(addr);
