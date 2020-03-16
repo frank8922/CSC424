@@ -31,7 +31,16 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	/*
 	 * create a socket to send
 	 */
-	 
+	int fd;
+	struct sockaddr_in hints
+	struct sockaddr_in *addrs;
+	memset(&hints,0,sizeof(hints));
+	hints.ai_family = AF_NET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	fd = socket(AF_NET,SOCK_DGRAM,0);
+
 	/*
 	 * send RRQ
 	 */
@@ -60,3 +69,13 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	return 0 ;
 }
 
+
+void check(int val,char *msg)
+{
+	switch (val)
+	case -1 :
+		perror(msg);
+		exit(1);
+	break;
+	
+}

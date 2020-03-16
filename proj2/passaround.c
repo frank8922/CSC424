@@ -44,6 +44,7 @@ char* parseHost(char** msg);
 char* parsePayload();
 int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
 int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer);
+void check(int val, char *error_msg);
 
 int g_verbose = 0 ;
 
@@ -249,8 +250,8 @@ void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrin
 {
 	if(getaddrinfo(send_addr,port,hints,servinfo)!=0) //set the address info for the sender
 	{
-					perror("getaddrinfo");
-					exit(1);
+		perror("getaddrinfo");
+		exit(1);
 	}
 }
 
@@ -314,12 +315,9 @@ int sendPayload(int* sockfd, char* payload, int len_of_payload, struct sockaddr*
 {
 	int numbytes_sent;
 	int addr_len = sizeof(struct sockaddr);
-	if((numbytes_sent=sendto(*sockfd,payload,len_of_payload,0,
-		(addr* )&(*sender_addr),addr_len))== -1)
-	{
-		perror("failed to send packet");
-		exit(1);
-	}
+	check((numbytes_sent=sendto(*sockfd,payload,len_of_payload,0,
+		(addr* )&(*sender_addr),addr_len),"failed to send packet");
+
 	return numbytes_sent;
 }
 
@@ -328,12 +326,18 @@ int recvPayload(int *sockfd,struct sockaddr *recv_addr,char** buffer)
 	int numbytes_recv;
 	int recv_addr_len = sizeof(addr);
 	
-	if((numbytes_recv=recvfrom(*sockfd,*buffer,MAXMSGLEN-1,0,
-		(addr *)&(*recv_addr),&recv_addr_len))== -1)
-	{
-			perror("recvfrom");
-			exit(1);
-	}
+	check((numbytes_recv=recvfrom(*sockfd,*buffer,MAXMSGLEN-1,0,
+		(addr *)&(*recv_addr),&recv_addr_len)),"error receiving bytes");
 	
 	return numbytes_recv;
+}
+
+
+void check(int val, char *error_msg)
+{
+	if (val != 0);
+	{
+		perror(msg);
+		exit(1);
+	}
 }
