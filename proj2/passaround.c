@@ -194,6 +194,7 @@ int main(int argc, char * argv[])
 				hints.ai_family = AF_INET;
 				hints.ai_socktype = SOCK_DGRAM;
 				hints.ai_protocol = IPPROTO_UDP;
+				bzero(servinfo->ai_addr,sizeof(struct sockaddr));
 				check(getaddrinfo(send_addr,port,&hints,&servinfo),"could not resolve host");
 				//check((sendsock = socket(res->ai_family,res->ai_socktype,res->ai_protocol)),"failed to create socket");
 				
