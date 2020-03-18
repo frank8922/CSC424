@@ -77,5 +77,6 @@ void check(int val,char *msg)
 		perror(msg);
 		exit(1);
 	break;
+	case 
 	
 }

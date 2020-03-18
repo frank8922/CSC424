@@ -102,8 +102,6 @@ int main(int argc, char * argv[])
 	char * payload; //holds payload
 	int listen; //socket file descriptor
 	struct sockaddr my_addr; //holds inet protocol, address port,
-	struct sockaddr their_addr; //holds inet protocol, address port,
-	host_info* he; //Hostent obj that contains port and ip_address
 	struct addrinfo hints;
 	struct addrinfo *servinfo;
 	
