@@ -27,6 +27,7 @@
 #define LOCALHOST "localhost" //127.0.0.1
 #define MAXMSGLEN 2048 //Max message length
 #define N_REPEAT_DEFAULT 1 //Repeat set to true
+#define SI struct sockaddr_in //for ease of typing and to minimize long casts
 
 #define USAGE_MESSAGE "usage: passaround [-v] [-n num] [-m message] port"
 #define PROG_NAME "passaround" 
@@ -35,30 +36,19 @@ typedef struct sockaddr_in inetaddr;
 typedef struct sockaddr addr;
 typedef struct hostent host_info;
 
-void opensocket(int *sockfd);
-void getHostname(host_info** hostinfo, char* send_addr);
-void getSenderHostname(inetaddr *,char*,int);
-void setSendAddrInfo(struct addrinfo *hints,inetaddr *their_addr);
-void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrinfo **servinfo);
 char* parseHost(char** msg);
 char* parsePayload();
-int sendPayload(int *sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr);
-int recvPayload(int *sockfd,struct sockaddr * recv_addr,char** buffer);
 void check(int val, char *error_msg);
+void printAddrs(struct addrinfo *res);
 
 int g_verbose = 0 ;
 
 int main(int argc, char * argv[]) 
 {
 
- 	int listen; //socket file descriptor
-	inetaddr my_addr; //holds inet protocol, address port,
-	inetaddr their_addr; //holds inet protocol, address port,
-	host_info* he; //Hostent obj that contains port and ip_address
-	struct addrinfo hints;
-	struct addrinfo *servinfo;
-	int numbytes_sent; //holds the num of bytes written out
-	int numbytes_recv; //holds num bytes recieved
+ 	
+	int numbytes_sent = 0; //holds the num of bytes written out
+	int numbytes_recv = 0; //holds num bytes recieved
 	int ch ;
 	int y = 1;
 	int the_port = 0 ;
@@ -107,30 +97,16 @@ int main(int argc, char * argv[])
 	is_forever = (n_repeat == 0) ; //flag to terminate sending packets, 
 								   //if n_repeat is 0, loop infinitely 
 
-	char * send_addr;
-	char * payload;
 
+	char * send_addr; //holds sender address
+	char * payload; //holds payload
+	int listen; //socket file descriptor
+	struct sockaddr my_addr; //holds inet protocol, address port,
+	struct sockaddr their_addr; //holds inet protocol, address port,
+	host_info* he; //Hostent obj that contains port and ip_address
+	struct addrinfo hints;
+	struct addrinfo *servinfo;
 	
-	opensocket(&listen);
-	memset(&hints,0,sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE;
-	memset(&(my_addr.sin_zero),'\0',8);
-
-	if(getaddrinfo(NULL,port,&hints,&servinfo)!=0){
-		perror("getaddrinfo");
-		exit(1);
-	}
-	
-	if (setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)) == -1) { 
-		perror("setsockopt");
-		exit(1);
-	}
-
-	if(bind(listen,servinfo->ai_addr,servinfo->ai_addrlen) == -1 ) 
-	{ perror("bind") ; exit(1) ;}
-
 
 	if ( msg ) 
 	{
@@ -141,57 +117,98 @@ int main(int argc, char * argv[])
 		payload = parsePayload();
 		//*end parse*
 
+		struct addrinfo clienthints;
+		struct addrinfo *res;
+		int sendsock; 
+		socklen_t socksize = sizeof(struct sockaddr);
+
 		if(strlen(send_addr) > 0)
 		{
-			
-			getSenderHostname(&their_addr,send_addr,the_port);
+			memset(&clienthints,0,sizeof(clienthints));
+			clienthints.ai_family = AF_INET;
+			clienthints.ai_socktype = SOCK_DGRAM;
+			clienthints.ai_protocol = IPPROTO_UDP;
+			check(getaddrinfo(send_addr,port,&clienthints,&res),"could not resolve host");
+			check((sendsock = socket(res->ai_family,res->ai_socktype,res->ai_protocol)),"failed to create socket");
 
-			//**send payload to address
-			numbytes_sent = sendPayload(&listen,payload,strlen(payload),(struct sockaddr* )&their_addr);
-			getHostname(&he,send_addr);
-			printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload);
-			//**end send payload to address
+			//send payload to address
+			check((numbytes_sent=sendto(sendsock,payload,strlen(payload),0,res->ai_addr,socksize)),"failed to send packet");
+			close(sendsock);
+			//end send payload to address
+			
+			//print sender address and payload
+			printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)res->ai_addr)->sin_addr),ntohs(((SI*)res->ai_addr)->sin_port),payload);
 		}
 
 
-		 free(msg); 
-		 free(send_addr);
-		 if(strcmp(payload,"\0") != 0)
+		 free(msg); //free msg
+		 free(send_addr);//free sender address
+		 if(strcmp(payload,"\0") != 0) //if payload is not empty free it
 			free(payload);
-		 freeaddrinfo(servinfo); 
+		 freeaddrinfo(res); //free addr results
 		 n_repeat-- ; // a packet sent
 		 
 	}
+
 		
+	memset(&hints,0,sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+	bzero(&my_addr,sizeof(my_addr));
+	
+	//set server address info
+	check((getaddrinfo(NULL,port,&hints,&servinfo)),"failed to resolve hostname");
+
+	//open socket
+	check((listen = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)),"failed to open socket");
+
+	//set socket options	
+	check(setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)),"failed to set socket options"); 
+
+	//bind to socket to listen
+	check((bind(listen,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to bind to socket"); 
+	
+	//free server info struct
+	freeaddrinfo(servinfo);
+
 	while( is_forever || n_repeat ) 
 	{
-		numbytes_recv = recvPayload(&listen,(struct sockaddr*)&my_addr,&buffer);
+		numbytes_recv = 0;
+		socklen_t socksize = sizeof(struct sockaddr);
+		
+		check((numbytes_recv=recvfrom(listen,buffer,MAXMSGLEN-1,0,&my_addr,&socksize)),"error receiving bytes");
 
 		if(numbytes_recv > 0) //if we recieved data
 		{
 			// print R: host:port |message|
-			printf("R: %s:%d |%s|\n",inet_ntoa(my_addr.sin_addr),ntohs(my_addr.sin_port),buffer); 
+			struct sockaddr_in * recv_addr = (SI*)&my_addr; //cast to sockaddr_in
+			printf("R: %s:%d |%s|\n",inet_ntoa(recv_addr->sin_addr),ntohs(recv_addr->sin_port),buffer); 
 			
 			send_addr = parseHost(&buffer);
 			payload = parsePayload();
 
 			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
 			{
+				memset(&hints,0,sizeof(hints));
+				hints.ai_family = AF_INET;
+				hints.ai_socktype = SOCK_DGRAM;
+				hints.ai_protocol = IPPROTO_UDP;
+				check(getaddrinfo(send_addr,port,&hints,&servinfo),"could not resolve host");
+				//check((sendsock = socket(res->ai_family,res->ai_socktype,res->ai_protocol)),"failed to create socket");
 				
-				setSendAddrInfo(&hints,&their_addr);
-				getAddrInfo(send_addr,port,&hints,&servinfo);
-				getHostname(&he,send_addr);
-				//if something to send and print S: host:port |message|
-				printf("S: %s:%d |%s|\n",inet_ntoa(*(struct in_addr*)he->h_addr),ntohs(their_addr.sin_port),payload); 
-				numbytes_sent = sendPayload(&listen,payload,strlen(payload),servinfo->ai_addr);
-				//memset(payload,'\0',strlen(payload));
+				//if something to send
+				check((numbytes_sent=sendto(listen,payload,strlen(payload),0,servinfo->ai_addr,sizeof(socksize))),"failed to send packet");
+
+				//print S: host:port |message|
+				printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)servinfo->ai_addr)->sin_addr),the_port,payload); 
+
 				free(send_addr);
 				if(strcmp(payload,"\0") != 0)
 					free(payload);
 				freeaddrinfo(servinfo); //free linked list created using getaddrinfo 
 			}
 		
-			
 		}
 		n_repeat-- ;
 	}
@@ -200,60 +217,18 @@ int main(int argc, char * argv[])
 	return 0 ;
 }
 
-/* param: pointer to socket file descriptor
- * throws error and exits if error.
- */
-void opensocket(int *sockfd)
+void printAddrs(struct addrinfo *res)
 {
-	*sockfd=socket(AF_INET,SOCK_DGRAM,0);
-	if(*sockfd == -1)
+	void * addr;
+	char ipstr[INET6_ADDRSTRLEN];
+	for(struct addrinfo* p = res; p != NULL; p = p->ai_next)	
 	{
-		perror("failed to create socket");
-		exit(1) ;
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr; 
+		addr = &(ipv4->sin_addr);
+		printf("%s\n",inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr));
 	}
 }
 
-/* params: pointer to hostent struct and char array of requested hostname
- * throws error and exits if error.
- */
-void getHostname(host_info** hostinfo, char* send_addr)
-{
-	//host_info* hp = (host_info*)malloc(sizeof(host_info*));
-	if((*hostinfo = gethostbyname(send_addr))==NULL)
-	{
-		perror("failed to get hostname");
-		exit(1);
-	}
-		
-}
-
-void getSenderHostname(inetaddr *their_addr,char* send_addr,int port)
-{
-	//*get hostname*
-	their_addr->sin_family = AF_INET;
-	their_addr->sin_port = htons((short)port);
-	inet_aton(send_addr,&(*their_addr).sin_addr);
-	memset(&(*their_addr->sin_zero),'\0',8);
-	//*end get hostname*
-}
-
-void setSendAddrInfo(struct addrinfo *hints,inetaddr *their_addr)
-{
-
-	memset(&(*hints),0,sizeof(*hints));
-	hints->ai_family = AF_INET;
-	hints->ai_socktype = SOCK_DGRAM;
-	memset(&(*their_addr->sin_zero),'\0',8);
-}
-
-void getAddrInfo(char* send_addr,char* port,struct addrinfo *hints,struct addrinfo **servinfo)
-{
-	if(getaddrinfo(send_addr,port,hints,servinfo)!=0) //set the address info for the sender
-	{
-		perror("getaddrinfo");
-		exit(1);
-	}
-}
 
 /* params: msg to parse containing host
  * return: sender address
@@ -308,36 +283,11 @@ char* parsePayload()
 	return payload;
 }
 
-/* params: socket file descriptor pointer, length of payload, sockaddr_in pointer to client
- * return: numbytes if successful, throws error and exits otherwise.
- */
-int sendPayload(int* sockfd, char* payload, int len_of_payload, struct sockaddr* sender_addr)
-{
-	int numbytes_sent;
-	int addr_len = sizeof(struct sockaddr);
-	check((numbytes_sent=sendto(*sockfd,payload,len_of_payload,0,
-		(addr* )&(*sender_addr),addr_len),"failed to send packet");
-
-	return numbytes_sent;
-}
-
-int recvPayload(int *sockfd,struct sockaddr *recv_addr,char** buffer)
-{
-	int numbytes_recv;
-	int recv_addr_len = sizeof(addr);
-	
-	check((numbytes_recv=recvfrom(*sockfd,*buffer,MAXMSGLEN-1,0,
-		(addr *)&(*recv_addr),&recv_addr_len)),"error receiving bytes");
-	
-	return numbytes_recv;
-}
-
-
 void check(int val, char *error_msg)
 {
-	if (val != 0);
+	if (val < 0)
 	{
-		perror(msg);
+		perror(error_msg);
 		exit(1);
 	}
 }
