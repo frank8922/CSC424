@@ -263,7 +263,6 @@ char* parsePayload()
 		memset(payload,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ payload[i] = p[i]; }
-		//payload[len+1] = '\0';
 	}
 	else
 	{
