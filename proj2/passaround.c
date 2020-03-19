@@ -32,10 +32,6 @@
 #define USAGE_MESSAGE "usage: passaround [-v] [-n num] [-m message] port"
 #define PROG_NAME "passaround" 
 
-typedef struct sockaddr_in inetaddr;
-typedef struct sockaddr addr;
-typedef struct hostent host_info;
-
 char* parseHost(char** msg);
 char* parsePayload();
 void check(int val, char *error_msg);
@@ -101,9 +97,7 @@ int main(int argc, char * argv[])
 	char * send_addr; //holds sender address
 	char * payload; //holds payload
 	int listen; //socket file descriptor
-	int sendsock; 
-	struct sockaddr my_addr; //holds inet protocol, address port,
-	struct sockaddr their_addr; //holds inet protocol, address port,
+	struct sockaddr my_addr;
 	struct addrinfo hints;
 	struct addrinfo *servinfo;
 
@@ -132,7 +126,6 @@ int main(int argc, char * argv[])
 
 		struct addrinfo clienthints;
 		struct addrinfo *res;
-		socklen_t socksize = sizeof(struct sockaddr);
 
 		if(strlen(send_addr) > 0)
 		{
@@ -144,18 +137,21 @@ int main(int argc, char * argv[])
 
 			//send payload to address
 			check((numbytes_sent=sendto(listen,payload,strlen(payload),0,res->ai_addr,res->ai_addrlen)),"failed to send packet");
-			//end send payload to address
 			
 			//print sender address and payload
 			printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)res->ai_addr)->sin_addr),ntohs(((SI*)res->ai_addr)->sin_port),payload);
 		}
 
-
-		 free(msg); //free msg
-		 free(send_addr);//free sender address
-		 if(strcmp(payload,"\0") != 0) //if payload is not empty free it
+		 //free msg
+		 free(msg);
+		 //free sender address
+		 free(send_addr);
+		 //if payload is not empty free it
+		 if(strcmp(payload,"\0") != 0) 
 			free(payload);
-		 freeaddrinfo(res); //free addr results
+		 //free addr results
+		 freeaddrinfo(res);
+
 		 n_repeat-- ; // a packet sent
 		 
 	}
@@ -169,7 +165,7 @@ int main(int argc, char * argv[])
 	while( is_forever || n_repeat ) 
 	{
 		numbytes_recv = 0;
-		socklen_t socksize = sizeof(struct sockaddr);
+		socklen_t socksize = sizeof(struct sockaddr_in);
 		
 		check((numbytes_recv=recvfrom(listen,buffer,MAXMSGLEN-1,0,&my_addr,&socksize)),"error receiving bytes");
 
@@ -183,7 +179,8 @@ int main(int argc, char * argv[])
 			send_addr = parseHost(&buffer);
 			payload = parsePayload();
 
-			if(strlen(send_addr) > 0) //if send address exists set proper settings for sending
+			//if send address exists, set proper settings for sending
+			if(strlen(send_addr) > 0) 
 			{
 				memset(&hints,0,sizeof(hints));
 				hints.ai_family = AF_INET;
@@ -191,7 +188,7 @@ int main(int argc, char * argv[])
 				hints.ai_protocol = IPPROTO_UDP;
 				check(getaddrinfo(send_addr,port,&hints,&servinfo),"could not resolve host");
 
-				//if something to send
+				//send payload to address
 				check((numbytes_sent=sendto(listen,payload,strlen(payload),0,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to send packet");
 				
 				//print S: host:port |message|
@@ -205,8 +202,11 @@ int main(int argc, char * argv[])
 		}
 		n_repeat-- ;
 	}
-	free(buffer); //free the buffer memory
-	close(listen); //close socket
+	//free the buffer memory
+	free(buffer); 
+
+	//close socket
+	close(listen); 
 	return 0 ;
 }
 
@@ -234,19 +234,16 @@ char* parseHost(char** msg)
 
 	if((temp = strtok(*msg,":")) != NULL)
 	{
-		
 		for(len = 0; len < strlen(*msg); len++);
-		send_addr = malloc(len+1 * sizeof(char));
+		send_addr = malloc(len+1);
 		memset(send_addr,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ send_addr[i] = temp[i]; }
-		send_addr [len+1] = '\0';
-
-		
+		//send_addr [len+1] = '\0';
 	}
 	else
 	{
-		send_addr = malloc(sizeof(char));
+		send_addr = malloc(1);
 		send_addr = "\0";
 	}
 	
@@ -262,15 +259,15 @@ char* parsePayload()
 	if((p = strtok(NULL,"")) != NULL)
 	{
 		for(i = 0; len < strlen(p); len++);
-		payload = malloc(len+1 * sizeof(char));
+		payload = malloc(len+1);
 		memset(payload,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ payload[i] = p[i]; }
-		payload[len+1] = '\0';
+		//payload[len+1] = '\0';
 	}
 	else
 	{
-		payload = malloc(sizeof(char));
+		payload = malloc(1);
 		payload = "\0";
 	}
 	
