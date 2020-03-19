@@ -127,11 +127,8 @@ int main(int argc, char * argv[])
 	if ( msg ) 
 	{
 		// parse and send
-
-		//*parse*
 		send_addr = parseHost(&msg);
 		payload = parsePayload();
-		//*end parse*
 
 		struct addrinfo clienthints;
 		struct addrinfo *res;
@@ -151,7 +148,6 @@ int main(int argc, char * argv[])
 			
 			//print sender address and payload
 			printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)res->ai_addr)->sin_addr),ntohs(((SI*)res->ai_addr)->sin_port),payload);
-
 		}
 
 
@@ -163,11 +159,9 @@ int main(int argc, char * argv[])
 		 n_repeat-- ; // a packet sent
 		 
 	}
-
 	
 	//zero out address structure
 	bzero(&my_addr,sizeof(my_addr));
-	
 
 	//free server info struct
 	freeaddrinfo(servinfo);
@@ -182,6 +176,7 @@ int main(int argc, char * argv[])
 		if(numbytes_recv > 0) //if we recieved data
 		{
 			struct sockaddr_in * recv_addr = (SI*)&my_addr; //cast to sockaddr_in
+
 			// print R: host:port |message|
 			printf("R: %s:%d |%s|\n",inet_ntoa(recv_addr->sin_addr),ntohs(recv_addr->sin_port),buffer); 
 			
@@ -198,7 +193,6 @@ int main(int argc, char * argv[])
 
 				//if something to send
 				check((numbytes_sent=sendto(listen,payload,strlen(payload),0,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to send packet");
-				//close(sendsock);
 				
 				//print S: host:port |message|
 				printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)servinfo->ai_addr)->sin_addr),the_port,payload); 
@@ -211,7 +205,6 @@ int main(int argc, char * argv[])
 		}
 		n_repeat-- ;
 	}
-	//close(sendsock);
 	free(buffer); //free the buffer memory
 	close(listen); //close socket
 	return 0 ;
@@ -230,7 +223,8 @@ void printAddrs(struct addrinfo *res)
 }
 
 
-/* params: msg to parse containing host
+/* 
+ * params: msg to parse containing host
  * return: sender address
  */
 char* parseHost(char** msg)
