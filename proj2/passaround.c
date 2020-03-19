@@ -101,10 +101,28 @@ int main(int argc, char * argv[])
 	char * send_addr; //holds sender address
 	char * payload; //holds payload
 	int listen; //socket file descriptor
+	int sendsock; 
 	struct sockaddr my_addr; //holds inet protocol, address port,
+	struct sockaddr their_addr; //holds inet protocol, address port,
 	struct addrinfo hints;
 	struct addrinfo *servinfo;
-	
+
+	memset(&hints,0,sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	//set server address info
+	check((getaddrinfo(NULL,port,&hints,&servinfo)),"failed to resolve hostname");
+
+	//open socket
+	check((listen = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)),"failed to open socket");
+
+	//set socket options	
+	check(setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)),"failed to set socket options"); 
+
+	//bind to socket to listen
+	check((bind(listen,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to bind to socket"); 
 
 	if ( msg ) 
 	{
@@ -117,7 +135,6 @@ int main(int argc, char * argv[])
 
 		struct addrinfo clienthints;
 		struct addrinfo *res;
-		int sendsock; 
 		socklen_t socksize = sizeof(struct sockaddr);
 
 		if(strlen(send_addr) > 0)
@@ -127,15 +144,14 @@ int main(int argc, char * argv[])
 			clienthints.ai_socktype = SOCK_DGRAM;
 			clienthints.ai_protocol = IPPROTO_UDP;
 			check(getaddrinfo(send_addr,port,&clienthints,&res),"could not resolve host");
-			check((sendsock = socket(res->ai_family,res->ai_socktype,res->ai_protocol)),"failed to create socket");
 
 			//send payload to address
-			check((numbytes_sent=sendto(sendsock,payload,strlen(payload),0,res->ai_addr,socksize)),"failed to send packet");
-			close(sendsock);
+			check((numbytes_sent=sendto(listen,payload,strlen(payload),0,res->ai_addr,res->ai_addrlen)),"failed to send packet");
 			//end send payload to address
 			
 			//print sender address and payload
 			printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)res->ai_addr)->sin_addr),ntohs(((SI*)res->ai_addr)->sin_port),payload);
+
 		}
 
 
@@ -148,25 +164,11 @@ int main(int argc, char * argv[])
 		 
 	}
 
-		
-	memset(&hints,0,sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE;
+	
+	//zero out address structure
 	bzero(&my_addr,sizeof(my_addr));
 	
-	//set server address info
-	check((getaddrinfo(NULL,port,&hints,&servinfo)),"failed to resolve hostname");
 
-	//open socket
-	check((listen = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)),"failed to open socket");
-
-	//set socket options	
-	check(setsockopt(listen,SOL_SOCKET,SO_REUSEADDR,&y,sizeof(y)),"failed to set socket options"); 
-
-	//bind to socket to listen
-	check((bind(listen,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to bind to socket"); 
-	
 	//free server info struct
 	freeaddrinfo(servinfo);
 
@@ -179,8 +181,8 @@ int main(int argc, char * argv[])
 
 		if(numbytes_recv > 0) //if we recieved data
 		{
-			// print R: host:port |message|
 			struct sockaddr_in * recv_addr = (SI*)&my_addr; //cast to sockaddr_in
+			// print R: host:port |message|
 			printf("R: %s:%d |%s|\n",inet_ntoa(recv_addr->sin_addr),ntohs(recv_addr->sin_port),buffer); 
 			
 			send_addr = parseHost(&buffer);
@@ -192,16 +194,14 @@ int main(int argc, char * argv[])
 				hints.ai_family = AF_INET;
 				hints.ai_socktype = SOCK_DGRAM;
 				hints.ai_protocol = IPPROTO_UDP;
-				bzero(servinfo->ai_addr,sizeof(struct sockaddr));
 				check(getaddrinfo(send_addr,port,&hints,&servinfo),"could not resolve host");
-				//check((sendsock = socket(res->ai_family,res->ai_socktype,res->ai_protocol)),"failed to create socket");
-				
-				//if something to send
-				check((numbytes_sent=sendto(listen,payload,strlen(payload),0,servinfo->ai_addr,sizeof(socksize))),"failed to send packet");
 
+				//if something to send
+				check((numbytes_sent=sendto(listen,payload,strlen(payload),0,servinfo->ai_addr,servinfo->ai_addrlen)),"failed to send packet");
+				//close(sendsock);
+				
 				//print S: host:port |message|
 				printf("S: %s:%d |%s|\n",inet_ntoa(((SI*)servinfo->ai_addr)->sin_addr),the_port,payload); 
-
 				free(send_addr);
 				if(strcmp(payload,"\0") != 0)
 					free(payload);
@@ -211,6 +211,7 @@ int main(int argc, char * argv[])
 		}
 		n_repeat-- ;
 	}
+	//close(sendsock);
 	free(buffer); //free the buffer memory
 	close(listen); //close socket
 	return 0 ;
