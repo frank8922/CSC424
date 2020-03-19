@@ -239,7 +239,6 @@ char* parseHost(char** msg)
 		memset(send_addr,'\0',len+1);
 		for(i = 0; i != len; i++)
 		{ send_addr[i] = temp[i]; }
-		//send_addr [len+1] = '\0';
 	}
 	else
 	{
