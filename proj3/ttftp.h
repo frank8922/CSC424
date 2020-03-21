@@ -26,30 +26,46 @@ extern int g_verbose ;
 #define ACK_RETRY 6
 
 #define VAR_SIZE 0 
+//#define IS_NULL(X) checknull((X))
 
-struct TftpReq {
+typedef struct TftpReq {
 	char opcode[2] ;
-	char filename_and_mode[VAR_SIZE] ;
-} ;
+	char *filename_and_mode ; /* size varies */
+}TftpReq;
 
-struct TftpData {
-	char opcode[2] ;
-	char block_num[2] ;
-	char data[VAR_SIZE] ; /* zero to 512 bytes */
-} ;
-
-struct TftpAck {
+typedef struct TftpData {
 	char opcode[2] ;
 	char block_num[2] ;
-} ;
+	char *data ; /* zero to 512 bytes */
+}TftpData;
 
-struct TftpError {
+typedef struct TftpAck {
+	char opcode[2] ;
+	char block_num[2] ;
+}TftpAck;
+
+typedef struct TftpError {
 	char opcode[2] ;
 	char error_code[2] ;
-	char error_msg[VAR_SIZE] ;
-} ;
-
+	char *error_msg;
+}TftpError;
 
 int  ttftp_client( char * host, int port, char * file ) ;
 int  ttftp_server( int listen_port, int is_noloop ) ;
 
+// void check(int val,char *error_msg)
+// {
+// 	if(val < 0)	
+// 	{
+// 		perror(error_msg);
+// 		exit(1);
+// 	}
+// }
+// void checknull(void * ptr)
+// {
+// 	if(ptr == NULL)
+// 	{
+// 		fprintf(stderr,"NULL POINTER (%s:%d)\n",__FILE__,__LINE__);
+// 		exit(1);
+// 	}
+// }

@@ -8,7 +8,7 @@
 # tagets build, test, clean and submit are required.
 # 
 
-COPTS= 
+COPTS= -g -Wall
 #COPTS= -Wall
 
 # adjust these macro values accordingly.
