@@ -62,6 +62,12 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 		exit(1);
 	}
 
+	if((bind(sockfd_l,addrs->ai_addr,addrs->ai_addrlen)) < 0)
+	{
+		perror("failed to bind socket");
+		exit(1);
+	}
+
 	do {
 	
 		/*
