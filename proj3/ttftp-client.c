@@ -69,11 +69,11 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	}
 	//bind socket
 	// check((bind(sock,addrs->ai_addr,addrs->ai_addrlen)),"failed to bind socket");
-	if((bind(sock,addrs->ai_addr,addrs->ai_addrlen)) < 0)
-	{
-		perror("failed to bind socket");
-		exit(1);
-	}
+	/*if((bind(sock,addrs->ai_addr,addrs->ai_addrlen)) < 0)*/
+	/*{*/
+		/*perror("failed to bind socket");*/
+		/*exit(1);*/
+	/*}*/
 	/*
 	 * send RRQ
 	 */
@@ -127,7 +127,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 			exit(1);
 		}
 		//allocate space for packet
-		TftpData *data_packet = malloc(sizeof(TftpData*)); //SIZE VARIES
+		TftpData *data_packet = malloc(sizeof(TftpData)); //SIZE VARIES
 		//check if packet is null
 		if(buffer == NULL)
 		{

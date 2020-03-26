@@ -88,7 +88,8 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 		 * TODO: parse request and open file
 		 */
 		TftpReq *recv_rrq_packet = (TftpReq*)buffer;
-		write(1,recv_rrq_packet->filename_and_mode,recvbytes);
+		//write(1,recv_rrq_packet->filename_and_mode,recvbytes);
+    printf("%s\n",buffer);
 		/*
 		 * create a sock for the data packets
 		 */	 
