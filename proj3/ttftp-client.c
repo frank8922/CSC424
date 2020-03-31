@@ -35,7 +35,8 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	/*
 	 * create a socket to send
 	 */
-	int sock;
+	int sockfd_s = 0;
+	int sockfd_l = 0;
 	char * port;
 	struct addrinfo hints;
 	struct addrinfo *addrs;
@@ -56,7 +57,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	//get hostname of sender
 	check((getaddrinfo(to_host,port,&hints,&addrs) !=0),"failed to resolve hostname");
 	//create socket
-	check((sock = socket(addrs->ai_family,addrs->ai_socktype,addrs->ai_protocol)),"failed to create socket");
+	check((sockfd_s = socket(addrs->ai_family,addrs->ai_socktype,addrs->ai_protocol)),"failed to create socket");
 	/*
 	 * send RRQ
 	 */
@@ -67,7 +68,6 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	memset(rrq_packet,0,sizeof(TftpReq));
 	//set opcode
 	sprintf(rrq_packet->opcode,"%d",TFTP_RRQ);
-
 	//store filename in packet
 	sprintf(rrq_packet->filename_and_mode,"%s",file);
 	//store filemode in packet
@@ -75,7 +75,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	//get length of filename & filemode
 	int len = strlen(OCTET_STRING)+1+strlen(file)+1;
 	//send RRQ
-	check((sentbytes=sendto(sock,rrq_packet,sizeof(rrq_packet) + len,0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
+	check((sentbytes=sendto(sockfd_l,rrq_packet,sizeof(rrq_packet) + len,0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
 	//free packet
 	free(rrq_packet);
 
@@ -91,7 +91,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 		//hold # of bytes received
 		int recvbytes = 0;
 		//get bytes
-		check((recvbytes = recvfrom(sock,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error recieving bytes");	
+		check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error recieving bytes");	
 		TftpError *error_packet;
 		TftpData *data_packet;
 		TftpAck *ack_packet;
@@ -135,11 +135,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 		sprintf(ack_packet->opcode,"%d",TFTP_ACK);
 		sprintf(ack_packet->block_num,"%d",block_count);
 		//send ack packet
-		if((sentbytes = sendto(sock,ack_packet,sizeof(TftpAck),0,addrs->ai_addr,addrs->ai_addrlen)))
-		{
-			perror("failed to send bytes");
-			exit(1);
-		}
+		check((sentbytes = sendto(sockfd_s,ack_packet,sizeof(TftpAck),0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
 		//free ack packet
 		free(ack_packet);
 		//increment block count
@@ -153,12 +149,3 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	}
 	return 0 ;
 }
-
-/*
-	//bind socket
-	if((bind(sock,addrs->ai_addr,addrs->ai_addrlen)) < 0)
-	{
-    perror("failed to bind socket");
-		exit(1);
-	}
-*/

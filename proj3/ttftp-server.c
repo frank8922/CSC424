@@ -135,7 +135,7 @@ int send_errpack(int error_code,char *error_msg,struct sockaddr_in *client_res,i
       int sent = 0;
       int sendsock;
       check((sendsock = socket(AF_INET,SOCK_DGRAM,0)),"failed to open socket");
-      check((sent = sendto(sendsock,error_packet,sizeof(TftpError),0,(struct sockaddr*)client_res,sizeof(struct sockaddr_in))),"failed to send error packet");
+      check((sent = sendto(sock,error_packet,sizeof(TftpError),0,(struct sockaddr*)client_res,sizeof(struct sockaddr_in))),"failed to send error packet");
       free(error_packet);
       return sent;
 }
