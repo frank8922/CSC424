@@ -31,12 +31,16 @@
 
 int ttftp_client( char * to_host, int to_port, char * file ) {
 	int block_count ; 
+	void *buffer = malloc(TFTP_DATALEN);
 	
 	/*
 	 * create a socket to send
 	 */
-	int sockfd_s = 0;
-	int sockfd_l = 0;
+	int recvbytes = 0, 
+		sentbytes = 0, 
+		 sockfd_s = 0,
+		 sockfd_l = 0;
+
 	char * port;
 	struct addrinfo hints;
 	struct addrinfo *addrs;
@@ -62,24 +66,20 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	 * send RRQ
 	 */
 	TftpReq *rrq = createRRQ(file);
-	sendRRQ(rrq,sockfd_s,addrs->ai_addr);
+	sentbytes = sendRRQ(rrq,sockfd_s,addrs->ai_addr);
+	printf("sent %d bytes\n",sentbytes);
 	
 	block_count = 1 ; /* value expected */
 	while ( block_count ) {
-		struct sockaddr from_addr;
-		socklen_t socksize = sizeof(struct sockaddr);
-		void *buffer = malloc(TFTP_DATALEN);
-		/*
-		 * read a DATA packet
-		 */
-		//hold # of bytes received
-		int recvbytes = 0;
-		//get bytes
-		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error receiving bytes");	
+		struct sockaddr_in from_addr;
+		int socksize = sizeof(from_addr);
 		TftpError *error_packet = NULL;
 		TftpData *data_packet = NULL;
 		TftpAck *ack_packet = NULL;
-		//check packet opcode and cast packet to appropriate type
+		/*
+		 * read a DATA packet
+		 */
+		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error receiving bytes");	
 		char opcode = *((char*)buffer);
 		switch(opcode)
 		{
@@ -88,38 +88,12 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 			printf("error: %s\n",error_packet->error_msg);
 			break;
 			case '3':
-			data_packet = (TftpData*)buffer;//allocate space for ack packet
+			data_packet = (TftpData*)buffer;
 			printf("data: %s\n",data_packet->data);
-			ack_packet = malloc(sizeof(TftpAck));
-			memset(ack_packet,0,sizeof(TftpAck));
-			sprintf(ack_packet->opcode,"%d",TFTP_ACK);
-			sprintf(ack_packet->block_num,"%d",block_count);
 			//send ack packet
-			check((sentbytes = sendto(sockfd_s,ack_packet,sizeof(TftpAck),0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
-			//free ack packet
-			free(ack_packet);
-			break;
-			case '4':
-			ack_packet = (TftpAck*)buffer;
-			printf("block num: %s\n",ack_packet->block_num);
+			sendAckPacket(block_count,sockfd_s,&from_addr);
 			break;
 		}
-
-		//check if packet is null
-		if(buffer == NULL)
-		{
-			fprintf(stderr,"NULL POINTER (%s:%d)\n",__FILE__,__LINE__);
-			exit(1);
-		}
-
-		/*
-		 * write bytes to stdout
-		 */
-
-		/*
-		 * send an ACK
-		 */
-		
 		//increment block count
 		block_count ++ ;
 		

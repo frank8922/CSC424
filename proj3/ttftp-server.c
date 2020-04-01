@@ -84,9 +84,7 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 		/*
 		* create a sock for the data packets
 		*/	 
-		check((sockfd_s = socket(AF_INET,SOCK_DGRAM,0)),"failed to create socket");
-		//allocate space for data packet
-		int bytes_read = 0;
+		//check((sockfd_s = socket(AF_INET,SOCK_DGRAM,0)),"failed to create socket");
 
 		block_count = 1 ;
 		while (block_count) 
@@ -100,15 +98,24 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 			*/
 			if(!feof(file))
 			{
+				int sentbytes = 0;
 				printf("%s\n",data_packet->data);
-				sendDataPacket(sockfd_s,their_addr,data_packet);
+				sentbytes = sendDataPacket(sockfd_l,their_addr,data_packet);
+				printf("sent %d bytes\n",sentbytes);
 				break;
 			}
 			/*
 			* wait for acknowledgement & DO NOT SEND PCKT IF DUP ACK
 			*/
-			check((recvfrom()),"error receiving bytes");
-			TftpAck *recv_ack_packet = (TftpAck*)buffer;
+			check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
+			printf("number of bytes recv %d\n",recvbytes);
+			opcode = *((char*)buffer);
+			if(opcode == TFTP_ACK)
+			{
+				TftpAck *recv_ack_packet = (TftpAck*)buffer;
+				if(recv_ack_packet->block_num == block_count);
+				printf("ACK: %d\n",recv_ack_packet->block_num);
+			}
 
 			block_count++ ;
 		}

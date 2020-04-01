@@ -64,7 +64,7 @@ int sendErrorPacket(int error_code,char* error_msg,struct sockaddr_in*client_add
 void check(int val,char *error_msg);
 TftpData* createDataPacket(FILE* file,int block_count);
 int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packet);
-int sendAckPacket(char *block_num);
+int sendAckPacket(char *block_num,int sock,struct sockaddr_in *client_addr);
 int sendRRQ(TftpReq* rrq_packet,int sock, struct sockaddr_in* client_addr);
 TftpReq* createRRQ(char* filename);
 FILE * openFile(char *filename,int sock,struct sockaddr_in *client_addr);

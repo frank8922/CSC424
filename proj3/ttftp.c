@@ -107,6 +107,16 @@ int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_ad
       free(error_packet);
       return sent;
 }
+int sendAckPacket(char *block_num,int sock,struct sockaddr_in *client_addr)
+{
+	int sentbytes = -1;
+	TftpAck *ack_packet = malloc(sizeof(TftpAck));
+	sprintf(ack_packet->opcode,"%d",TFTP_ACK);
+	sprintf(ack_packet->block_num,"%d",block_num);
+	check((sentbytes = sendto(sock,ack_packet,sizeof(TftpAck),0,&client_addr,sizeof(client_addr))),"failed to send bytes");
+	free(ack_packet);
+	return sentbytes;
+}
 
 int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packet)
 {
