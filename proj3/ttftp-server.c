@@ -124,10 +124,10 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 				TftpAck *recv_ack_packet = (TftpAck*)buffer;
 				if(atoi(recv_ack_packet->block_num) == block_count)
 				{
-					printf("ACK: %s\n",recv_ack_packet->block_num);
+					//printf("ACK: %s\n",recv_ack_packet->block_num);
+					block_count++ ;
 				}
 			}
-			block_count++ ;
 		}
 	
 	} while (!is_noloop) ;

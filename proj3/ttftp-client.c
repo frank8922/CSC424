@@ -66,14 +66,12 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	 */
 	TftpReq *rrq = createRRQ(file);
 	sentbytes = sendRRQ(rrq,sockfd_s,addrs->ai_addr);
-	printf("sent %d bytes\n",sentbytes);
 	block_count = 1 ; /* value expected */
 	while ( block_count ) {
 		/*
 		 * read a DATA packet
 		 */
 		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&from_addr,&socksize)),"error receiving bytes");	
-		printf("number of bytes recv %d\n",recvbytes);
 		char opcode = *((char*)buffer);
 		switch(opcode)
 		{
@@ -83,11 +81,9 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 			break;
 			case '3':
 			data_packet = (TftpData*)buffer;
-			printf("data: %s\n",data_packet->data);
-			printf("\n");
+			printf("%s\n",data_packet->data);
 			//send ack packet
 			sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
-			printf("sent ack %d of %d\n",block_count,sentbytes);
 			//increment block count
 			block_count++ ;
 			break;
