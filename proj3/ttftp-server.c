@@ -31,7 +31,7 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 	int sockfd_l = 0,
 	   sentbytes = 0;
 
-	struct sockaddr_in my_addr, their_addr;
+	struct sockaddr_in their_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	struct addrinfo hints, *addrs;
 	int block_count ;

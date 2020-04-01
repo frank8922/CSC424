@@ -38,8 +38,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	 */
 	int recvbytes = 0, 
 		sentbytes = 0, 
-		 sockfd_s = 0,
-		 sockfd_l = 0;
+		 sockfd_s = 0;
 
 	char * port;
 	struct addrinfo hints;
@@ -85,6 +84,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 			case '3':
 			data_packet = (TftpData*)buffer;
 			printf("data: %s\n",data_packet->data);
+			printf("\n");
 			//send ack packet
 			sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
 			printf("sent ack %d of %d\n",block_count,sentbytes);

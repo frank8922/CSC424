@@ -116,7 +116,7 @@ void validatePort(int port)
 
 int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_addr,int sock)
 {
-      int sent = -1, len = 0;
+      int sent = -1;
       TftpError *error_packet = malloc(sizeof(TftpError));
 	  memset(error_packet,0,sizeof(TftpError));
       sprintf(error_packet->opcode,"%d",TFTP_ERR);
