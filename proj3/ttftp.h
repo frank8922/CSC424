@@ -53,18 +53,19 @@ typedef struct TftpAck {
 typedef struct TftpError {
 	char opcode[2] ;
 	char error_code[2] ;
-	char error_msg[MAXMSGLEN];
+	char error_msg[TFTP_DATALEN];
 	//char *error_msg ;
 }TftpError;
 
 int  ttftp_client( char * host, int port, char * file ) ;
 int  ttftp_server( int listen_port, int is_noloop ) ;
 void validate(char* filename);
+void validatePort(int port);
 int sendErrorPacket(int error_code,char* error_msg,struct sockaddr_in*client_addr,int sock);
 void check(int val,char *error_msg);
-TftpData* createDataPacket(FILE* file,int block_count);
-int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packet);
-int sendAckPacket(char *block_num,int sock,struct sockaddr_in *client_addr);
-int sendRRQ(TftpReq* rrq_packet,int sock, struct sockaddr_in* client_addr);
+int fillDataPacket(FILE* file,char *data);
+int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packet,int size);
+int sendAckPacket(int block_num,int sock,struct sockaddr_in *client_addr);
+int sendRRQ(TftpReq* rrq_packet,int sock, struct sockaddr* client_addr);
 TftpReq* createRRQ(char* filename);
-FILE * openFile(char *filename,int sock,struct sockaddr_in *client_addr);
+FILE * openFile(char *filename);

@@ -24,14 +24,14 @@
 #include "ttftp.h"
 
 #define h_addr h_addr_list[0]
-//#define IS_NULL(X) checknull((X))
-
-// void check(int val,char *error_msg);
-// void checknull(void * ptr);
 
 int ttftp_client( char * to_host, int to_port, char * file ) {
 	int block_count ; 
 	void *buffer = malloc(TFTP_DATALEN);
+	struct sockaddr_in from_addr;
+	socklen_t socksize = sizeof(struct sockaddr_in);
+	TftpError *error_packet = NULL;
+	TftpData *data_packet = NULL;
 	
 	/*
 	 * create a socket to send
@@ -68,18 +68,13 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	TftpReq *rrq = createRRQ(file);
 	sentbytes = sendRRQ(rrq,sockfd_s,addrs->ai_addr);
 	printf("sent %d bytes\n",sentbytes);
-	
 	block_count = 1 ; /* value expected */
 	while ( block_count ) {
-		struct sockaddr_in from_addr;
-		int socksize = sizeof(from_addr);
-		TftpError *error_packet = NULL;
-		TftpData *data_packet = NULL;
-		TftpAck *ack_packet = NULL;
 		/*
 		 * read a DATA packet
 		 */
-		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error receiving bytes");	
+		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&from_addr,&socksize)),"error receiving bytes");	
+		printf("number of bytes recv %d\n",recvbytes);
 		char opcode = *((char*)buffer);
 		switch(opcode)
 		{
@@ -91,17 +86,21 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 			data_packet = (TftpData*)buffer;
 			printf("data: %s\n",data_packet->data);
 			//send ack packet
-			sendAckPacket(block_count,sockfd_s,&from_addr);
+			sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
+			printf("sent ack %d of %d\n",block_count,sentbytes);
+			//increment block count
+			block_count++ ;
 			break;
 		}
-		//increment block count
-		block_count ++ ;
 		
-
 		/* check if more blocks expected, else 
 		 * set block_count = 0 ;
 		 */
-
+		if(recvbytes < TFTP_DATALEN-1)
+		{
+			block_count = 0;
+			break;
+		}
 	}
 	return 0 ;
 }
