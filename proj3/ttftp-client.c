@@ -24,19 +24,23 @@
 #include "ttftp.h"
 
 #define h_addr h_addr_list[0]
-//#define IS_NULL(X) checknull((X))
-
-// void check(int val,char *error_msg);
-// void checknull(void * ptr);
 
 int ttftp_client( char * to_host, int to_port, char * file ) {
 	int block_count ; 
+	void *buffer = malloc(TFTP_DATALEN);
+	struct sockaddr_in from_addr;
+	socklen_t socksize = sizeof(struct sockaddr_in);
+	TftpError *error_packet = NULL;
+	TftpData *data_packet = NULL;
 	
 	/*
 	 * create a socket to send
 	 */
-	int sockfd_s = 0;
-	int sockfd_l = 0;
+	int recvbytes = 0, 
+		sentbytes = 0, 
+		 sockfd_s = 0,
+		 sockfd_l = 0;
+
 	char * port;
 	struct addrinfo hints;
 	struct addrinfo *addrs;
@@ -61,91 +65,42 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	/*
 	 * send RRQ
 	 */
-	//holds # of bytes sent
-	int sentbytes = 0;
-	//create new rrq packet
-	TftpReq *rrq_packet = malloc(sizeof(TftpReq));
-	memset(rrq_packet,0,sizeof(TftpReq));
-	//set opcode
-	sprintf(rrq_packet->opcode,"%d",TFTP_RRQ);
-	//store filename in packet
-	sprintf(rrq_packet->filename_and_mode,"%s",file);
-	//store filemode in packet
-	sprintf((rrq_packet->filename_and_mode)+strlen(file)+1,"%s",OCTET_STRING);
-	//get length of filename & filemode
-	int len = strlen(OCTET_STRING)+1+strlen(file)+1;
-	//send RRQ
-	check((sentbytes=sendto(sockfd_l,rrq_packet,sizeof(rrq_packet) + len,0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
-	//free packet
-	free(rrq_packet);
-
-	
+	TftpReq *rrq = createRRQ(file);
+	sentbytes = sendRRQ(rrq,sockfd_s,addrs->ai_addr);
+	printf("sent %d bytes\n",sentbytes);
 	block_count = 1 ; /* value expected */
 	while ( block_count ) {
-		struct sockaddr from_addr;
-		socklen_t socksize = sizeof(struct sockaddr);
-		void *buffer = malloc(TFTP_DATALEN);
 		/*
 		 * read a DATA packet
 		 */
-		//hold # of bytes received
-		int recvbytes = 0;
-		//get bytes
-		check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,&from_addr,&socksize)),"error recieving bytes");	
-		TftpError *error_packet;
-		TftpData *data_packet;
-		TftpAck *ack_packet;
-		//check packet opcode and cast packet to appropriate type
+		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&from_addr,&socksize)),"error receiving bytes");	
+		printf("number of bytes recv %d\n",recvbytes);
 		char opcode = *((char*)buffer);
 		switch(opcode)
 		{
 			case '5':
-			// error_packet = malloc(sizeof(TftpError));
 			error_packet = (TftpError*)buffer;
 			printf("error: %s\n",error_packet->error_msg);
 			break;
 			case '3':
-			// data_packet = malloc(sizeof(TftpData));
 			data_packet = (TftpData*)buffer;
 			printf("data: %s\n",data_packet->data);
-			break;
-			case '4':
-			ack_packet = (TftpAck*)buffer;
-			printf("block num: %s\n",ack_packet->block_num);
+			//send ack packet
+			sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
+			printf("sent ack %d of %d\n",block_count,sentbytes);
+			//increment block count
+			block_count++ ;
 			break;
 		}
-
-		//check if packet is null
-		if(buffer == NULL)
-		{
-			fprintf(stderr,"NULL POINTER (%s:%d)\n",__FILE__,__LINE__);
-			exit(1);
-		}
-
-		/*
-		 * write bytes to stdout
-		 */
-
-		/*
-		 * send an ACK
-		 */
-		//allocate space for ack packet
-		ack_packet = malloc(sizeof(TftpAck));
-		memset(ack_packet,0,sizeof(TftpAck));
-		sprintf(ack_packet->opcode,"%d",TFTP_ACK);
-		sprintf(ack_packet->block_num,"%d",block_count);
-		//send ack packet
-		check((sentbytes = sendto(sockfd_s,ack_packet,sizeof(TftpAck),0,addrs->ai_addr,addrs->ai_addrlen)),"failed to send bytes");
-		//free ack packet
-		free(ack_packet);
-		//increment block count
-		block_count ++ ;
-		
 		
 		/* check if more blocks expected, else 
 		 * set block_count = 0 ;
 		 */
-
+		if(recvbytes < TFTP_DATALEN-1)
+		{
+			block_count = 0;
+			break;
+		}
 	}
 	return 0 ;
 }

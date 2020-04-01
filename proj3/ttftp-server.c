@@ -26,22 +26,15 @@
 #define FALSE 0
 
 
-
-int send_errpack(int error_code,char *error_msg,struct sockaddr_in *client_res,int sock);
-// void check(int val,char *error_msg);
-// void checknull(void * ptr);
-
 int  ttftp_server( int listen_port, int is_noloop ) {
 
-	int sockfd_l;
-	int sockfd_s ;
-	struct sockaddr_in my_addr;
-	struct sockaddr_in their_addr;
+	int sockfd_l = 0,
+	   sentbytes = 0;
+
+	struct sockaddr_in my_addr, their_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
-	struct addrinfo hints;
-	struct addrinfo *addrs;
+	struct addrinfo hints, *addrs;
 	int block_count ;
-	TftpError *error_packet;
 	
 	/*
 	 * create a socket to listen for RRQ
@@ -76,74 +69,68 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 		/*
 		 * TODO: parse request and open file
 		 */
-		TftpReq *recv_rrq_packet = (TftpReq*)buffer;
-		printf("%s\n",recv_rrq_packet->filename_and_mode);
-
-		/*if((recv_rrq_packet->filename_and_mode) == NULL)	
+		TftpReq *recv_rrq_packet = NULL;
+		FILE * file = NULL;
+		char opcode = *((char*)buffer);
+		if(opcode == '1')
 		{
-			fprintf(stderr,"NULL POINTER (%s:%d)\n",__FILE__,__LINE__);
-    		int sentbytes = send_errpack(FILENOTFOUND,"failed to find file",&their_addr,sockfd_l);
-      		printf("number of sent bytes %d\n",sentbytes);
-		}*/
-
-		FILE *file;
-		if((file = fopen(recv_rrq_packet->filename_and_mode,"rb")) == NULL)
-		{
-		perror("failed to open file");
-		//send error packet back to client
-		int sentbytes = send_errpack(FILENOTFOUND,"failed to find file",&their_addr,sockfd_l);
-		printf("number of sent bytes %d\n",sentbytes);
+			recv_rrq_packet = (TftpReq*)buffer;
+			printf("%s\n",recv_rrq_packet->filename_and_mode);
+			file = openFile(recv_rrq_packet->filename_and_mode);
+			if(file == NULL)
+			{
+				char *error_msg = malloc(MAXMSGLEN);
+				sprintf(error_msg,"%s","file ");
+				sprintf(error_msg,"%s",recv_rrq_packet->filename_and_mode);
+				sprintf(error_msg,"%s"," not found");
+				sentbytes = sendErrorPacket(FILENOTFOUND,error_msg,&their_addr,sockfd_l);
+				printf("sent %d bytes\n",sentbytes);
+				free(error_msg);
+				break;
+			}
 		}
-
 		
-
 		/*
-		 * create a sock for the data packets
-		 */	 
-		check((sockfd_s = socket(AF_INET,SOCK_DGRAM,0)),"failed to create socket");
-
-		TftpData *data_packet = malloc(sizeof(TftpData));
-
-		block_count = 0 ;
-		while (block_count) { 
-
+		* create a sock for the data packets
+		*/	 
+		int bytes_read = 0;
+		TftpData *data_packet = NULL;
+		block_count = 1 ;
+		while (block_count && !feof(file)) 
+		{ 
 			/*
-			 * TODO: read from file
-			 */
-			
+			* TODO: read from file
+			*/
+			data_packet = malloc(sizeof(TftpData));
+			memset(data_packet->data,0,TFTP_DATALEN);
+			sprintf(data_packet->opcode,"%d",TFTP_DATA);
+			sprintf(data_packet->block_num,"%d",block_count);
+			bytes_read = fillDataPacket(file,data_packet->data);
 			/*
-			 * send data packet
-			 */
-
+			* send data packet
+			*/
+			int sentbytes = 0;
+			printf("%s\n",data_packet->data);
+			sentbytes = sendDataPacket(sockfd_l,&their_addr,data_packet,bytes_read);
+			printf("sent %d bytes\n",sentbytes);
 			/*
-			 * wait for acknowledgement & DO NOT SEND PCKT IF DUP ACK
-			 */
-			 
+			* wait for acknowledgement & DO NOT SEND PCKT IF DUP ACK
+			*/
+			check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
+			printf("number of bytes recv %d\n",recvbytes);
+			opcode = *((char*)buffer);
+			if(opcode == '4')
+			{
+				TftpAck *recv_ack_packet = (TftpAck*)buffer;
+				if(atoi(recv_ack_packet->block_num) == block_count)
+				{
+					printf("ACK: %s\n",recv_ack_packet->block_num);
+				}
+			}
 			block_count++ ;
 		}
 	
 	} while (!is_noloop) ;
+	close(sockfd_l);
 	return 0 ;
-}
-
-int send_errpack(int error_code,char *error_msg,struct sockaddr_in *client_res,int sock)
-{
-      TftpError *error_packet = malloc(sizeof(TftpError));
-      sprintf(error_packet->opcode,"%d",TFTP_ERR);
-      sprintf(error_packet->error_code,"%d",error_code);
-      sprintf(error_packet->error_msg,"%s",error_msg);
-      int sent = 0;
-      int sendsock;
-      check((sendsock = socket(AF_INET,SOCK_DGRAM,0)),"failed to open socket");
-      check((sent = sendto(sock,error_packet,sizeof(TftpError),0,(struct sockaddr*)client_res,sizeof(struct sockaddr_in))),"failed to send error packet");
-      free(error_packet);
-      return sent;
-}
-
-void check(int val, char *error_msg)
-{
-  if(val < 0)
-  {
-    perror(error_msg);
-  }
 }
