@@ -34,7 +34,7 @@ extern int g_verbose ;
 
 typedef struct TftpReq {
 	char opcode[2] ;
-	char filename_and_mode[MAXFILENAMELEN] ; /* size varies */
+	char filename_and_mode[MAXFILENAMELEN+6] ; /* size varies */
 }TftpReq;
 
 typedef struct TftpData {

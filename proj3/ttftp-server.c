@@ -28,30 +28,37 @@
 
 int  ttftp_server( int listen_port, int is_noloop ) {
 
-	int sockfd_l = 0,
-	   sentbytes = 0;
-
+	int sockfd_l = 0, sentbytes = 0, block_count = 0;
+  short opcode = 0;
 	struct sockaddr_in their_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	struct addrinfo hints, *addrs;
-	int block_count ;
-	
+	char *l_port;
+
+
 	/*
 	 * create a socket to listen for RRQ
 	 */
+
 	//allocate space for port #
-	char *l_port = malloc(2);
+	*l_port = malloc(sizeof(short));
+  memset(&l_port,0,sizeof(short));
+
 	//convert port to string
 	sprintf(l_port,"%d",listen_port);
+
 	//get address of server
 	memset(&hints,0,sizeof(hints));
+
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE;
 
 	check((getaddrinfo(NULL,l_port,&hints,&addrs) != 0),"failed to resolve");
+
 	//open socket to listen
 	check((sockfd_l = socket(addrs->ai_family,addrs->ai_socktype,addrs->ai_protocol)),"failed to create socket");
+
 	//bind to the socket
 	check((bind(sockfd_l,addrs->ai_addr,addrs->ai_addrlen)),"failed to bind socket");
 
@@ -60,31 +67,44 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 		/*
 		 * for each RRQ 
 		 */
-		void *buffer = malloc(TFTP_DATALEN);
+
+		void *buffer = malloc(MAXMSGLEN);
+
 		//hold # of bytes received
 		int recvbytes = 0;
+
 		//get bytes
-		check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
-    	printf("number of bytes recv %d\n",recvbytes);
+		check((recvbytes = recvfrom(sockfd_l,buffer,MAXMSGLEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
+
+    	//printf("number of bytes recv %d\n",recvbytes);
+
 		/*
-		 * TODO: parse request and open file
+		 * parse request and open file
 		 */
+
 		TftpReq *recv_rrq_packet = NULL;
 		FILE * file = NULL;
-		char opcode = *((char*)buffer);
-		if(opcode == '1')
+
+    opcode = *((uint8_t*)buffer); //get first 2 bytes containting opcode
+
+		if(opcode == TFTP_RRQ) //check if opcode is a RRQ
 		{
 			recv_rrq_packet = (TftpReq*)buffer;
-			printf("%s\n",recv_rrq_packet->filename_and_mode);
+			//printf("%s\n",recv_rrq_packet->filename_and_mode);
+
+      //try to open file
 			file = openFile(recv_rrq_packet->filename_and_mode);
 			if(file == NULL)
 			{
 				char *error_msg = malloc(MAXMSGLEN);
-				sprintf(error_msg,"%s","file ");
-				sprintf(error_msg,"%s",recv_rrq_packet->filename_and_mode);
-				sprintf(error_msg,"%s"," not found");
+        memset(error_msg,0,MAXMSGLEN);
+
+        strcat(error_msg,"file ");
+        strcat(error_msg,recv_rrq_packet->filename_and_mode);
+        strcat(error_msg," not found");
+
 				sentbytes = sendErrorPacket(FILENOTFOUND,error_msg,&their_addr,sockfd_l);
-				printf("sent %d bytes\n",sentbytes);
+				//printf("sent %d bytes\n",sentbytes);
 				free(error_msg);
 				break;
 			}
@@ -101,35 +121,46 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 			/*
 			* TODO: read from file
 			*/
-			data_packet = malloc(sizeof(TftpData));
-			memset(data_packet->data,0,TFTP_DATALEN);
-			sprintf(data_packet->opcode,"%d",TFTP_DATA);
-			sprintf(data_packet->block_num,"%d",block_count);
-			bytes_read = fillDataPacket(file,data_packet->data);
-			/*
-			* send data packet
-			*/
-			int sentbytes = 0;
-			printf("%s\n",data_packet->data);
-			sentbytes = sendDataPacket(sockfd_l,&their_addr,data_packet,bytes_read);
-			printf("sent %d bytes\n",sentbytes);
+      data_packet = malloc(sizeof(TftpData));
+      memset(data_packet->data,0,TFTP_DATALEN);
+      opcode = htons(TFTP_DATA); //convert opcode to network format
+      data_packet->opcode[0] = (opcode >> 8) & 0xff; //store second byte 
+      data_packet->opcode[1] = opcode & 0xff; //store first byte
+      
+      //store block count
+      data_packet->block_num[0] = (block_count >> 8) & 0xff; //store 1st byte
+      data_packet->block_num[1] = block_count & 0xff; //store 2nd byte
+      
+      //read file and fill packet
+      bytes_read = fillDataPacket(file,data_packet->data);
+      /*
+      * send data packet
+      */
+      int sentbytes = 0;
+      //printf("%s\n",data_packet->data);
+      sentbytes = sendDataPacket(sockfd_l,&their_addr,data_packet,bytes_read);
+      //printf("sent %d bytes\n",sentbytes);
+      free(data_packet);
 			/*
 			* wait for acknowledgement & DO NOT SEND PCKT IF DUP ACK
 			*/
-			check((recvbytes = recvfrom(sockfd_l,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
-			printf("number of bytes recv %d\n",recvbytes);
-			opcode = *((char*)buffer);
-			if(opcode == '4')
+			check((recvbytes = recvfrom(sockfd_l,buffer,MAXMSGLEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
+			//printf("number of bytes recv %d\n",recvbytes);
+			opcode = *((uint8_t*)buffer);
+			if(opcode == TFTP_ACK) //check if opcode is an ACK
 			{
+        
 				TftpAck *recv_ack_packet = (TftpAck*)buffer;
-				if(atoi(recv_ack_packet->block_num) == block_count)
+        short block_num = (recv_ack_packet->block_num[0] << 8) | recv_ack_packet->block_num[1]; //combine 1st & 2nd byte to form blocknum
+
+        if(block_num == block_count)
 				{
-					//printf("ACK: %s\n",recv_ack_packet->block_num);
-					block_count++ ;
+          //block
+          block_count++ ;
 				}
 			}
-		}
-	
+		} //end while
+    fclose(file); //close file	
 	} while (!is_noloop) ;
 	close(sockfd_l);
 	return 0 ;

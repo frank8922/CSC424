@@ -27,7 +27,7 @@
 
 int ttftp_client( char * to_host, int to_port, char * file ) {
 	int block_count ; 
-	void *buffer = malloc(TFTP_DATALEN);
+	void *buffer = malloc(MAXMSGLEN);
 	struct sockaddr_in from_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	TftpError *error_packet = NULL;
@@ -40,7 +40,8 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 		sentbytes = 0, 
 		 sockfd_s = 0;
 
-	char * port;
+	short opcode;
+  char * port;
 	struct addrinfo hints;
 	struct addrinfo *addrs;
 	
@@ -66,33 +67,42 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	 */
 	TftpReq *rrq = createRRQ(file);
 	sentbytes = sendRRQ(rrq,sockfd_s,addrs->ai_addr);
+
 	block_count = 1 ; /* value expected */
 	while ( block_count ) {
 		/*
 		 * read a DATA packet
 		 */
-		check((recvbytes = recvfrom(sockfd_s,buffer,TFTP_DATALEN-1,0,(struct sockaddr*)&from_addr,&socksize)),"error receiving bytes");	
-		char opcode = *((char*)buffer);
+		check((recvbytes = recvfrom(sockfd_s,buffer,MAXMSGLEN-1,0,(struct sockaddr*)&from_addr,&socksize)),"error receiving bytes");	
+		opcode = *((short*)buffer);
 		switch(opcode)
 		{
-			case '5':
-			error_packet = (TftpError*)buffer;
-			printf("error: %s\n",error_packet->error_msg);
+			case TFTP_ERR:
+        error_packet = (TftpError*)buffer;
+        printf("error: %s\n",error_packet->error_msg);
 			break;
-			case '3':
-			data_packet = (TftpData*)buffer;
-			printf("%s\n",data_packet->data);
-			//send ack packet
-			sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
-			//increment block count
-			block_count++ ;
+      
+			case TFTP_DATA:
+        data_packet = (TftpData*)buffer;
+        if((data_packet->data==NULL) || recvbytes < 4)
+        {
+          //recieved an empty packet
+          sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
+          break;
+        }
+        fwrite(data_packet->data,1,recvbytes-4,stdout);
+        printf("\n");
+        //send ack packet
+        sentbytes = sendAckPacket(block_count,sockfd_s,&from_addr);
+        //increment block count
+        block_count++ ;
 			break;
 		}
 		
 		/* check if more blocks expected, else 
 		 * set block_count = 0 ;
 		 */
-		if(recvbytes < TFTP_DATALEN-1)
+		if(recvbytes-4 < TFTP_DATALEN-1)
 		{
 			block_count = 0;
 			break;
