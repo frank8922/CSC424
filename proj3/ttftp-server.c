@@ -30,7 +30,7 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 
 	int sockfd_l = 0, sockfd_s = 0, sentbytes = 0, block_count = 0, y = 1;
 	short opcode = 0;
-	struct sockaddr_in their_addr,from_addr;
+	struct sockaddr_in their_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	struct addrinfo hints, *addrs;
 	char *l_port;

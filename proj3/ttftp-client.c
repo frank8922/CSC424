@@ -30,7 +30,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 		sentbytes = 0, 
 		block_count;
 	void *buffer = malloc(MAXMSGLEN);
-	struct sockaddr_in from_addr,their_addr;
+	struct sockaddr_in from_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	TftpError *error_packet = NULL;
 	TftpData *data_packet = NULL;
