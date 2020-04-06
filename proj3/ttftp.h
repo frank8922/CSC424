@@ -25,6 +25,7 @@ extern int g_verbose ;
 #define ILLEGALOP 4
 
 #define OCTET_STRING "octet"
+#define LEN_OCTET_STR 6
 #define TFTP_DATALEN 512
 
 #define ACK_TIMEOUT 4
@@ -34,7 +35,7 @@ extern int g_verbose ;
 
 typedef struct TftpReq {
 	char opcode[2] ;
-	char filename_and_mode[MAXFILENAMELEN+6] ; /* size varies */
+	char filename_and_mode[MAXFILENAMELEN+LEN_OCTET_STR] ; /* size varies */
 }TftpReq;
 
 typedef struct TftpData {
@@ -51,7 +52,7 @@ typedef struct TftpAck {
 typedef struct TftpError {
 	char opcode[2] ;
 	char error_code[2] ;
-	char error_msg[MAXMSGLEN];
+	char error_msg[MAXMSGLEN-4];
 }TftpError;
 
 int  ttftp_client( char * host, int port, char * file ) ;

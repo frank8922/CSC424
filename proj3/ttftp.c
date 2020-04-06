@@ -114,7 +114,7 @@ void validatePort(int port)
     }
 }
 
-int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_addr,int sock)
+int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_addr,int sockfd_s)
 {
       int sent = -1;
       int len = strlen(error_msg)+1;
@@ -132,7 +132,7 @@ int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_ad
       sprintf(error_packet->error_msg,"%s",error_msg);
 
       //send error packet
-      check((sent = sendto(sock,error_packet,(4 * sizeof(char))+len,0,(struct sockaddr*)client_addr,sizeof(struct sockaddr_in))),"failed to send error packet");
+      check((sent = sendto(sockfd_s,error_packet,(4 * sizeof(char))+len,0,(struct sockaddr*)client_addr,sizeof(struct sockaddr_in))),"failed to send error packet");
 
       //free error packet
       free(error_packet);
@@ -197,13 +197,13 @@ TftpReq* createRRQ(char *filename)
     return rrq_packet;
 }
 
-int sendRRQ(TftpReq *rrq_packet,int sock, struct sockaddr *client_addr)
+int sendRRQ(TftpReq *rrq_packet,int sockfd_s, struct sockaddr *client_addr)
 {
     int sentbytes = -1;
     int len = sizeof(rrq_packet->filename_and_mode); 
 
     //send RRQ
-    check((sentbytes=sendto(sock,rrq_packet,sizeof(short)+len,0,client_addr,sizeof(struct sockaddr))),"failed to send bytes");
+    check((sentbytes=sendto(sockfd_s,rrq_packet,sizeof(short)+len,0,client_addr,sizeof(struct sockaddr))),"failed to send bytes");
     
     //free packet
     free(rrq_packet);
