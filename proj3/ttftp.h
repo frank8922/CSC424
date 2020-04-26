@@ -55,10 +55,10 @@ typedef struct TftpError {
 	char error_msg[MAXMSGLEN-4];
 }TftpError;
 
-int  ttftp_client( char * host, int port, char * file ) ;
-int  ttftp_server( int listen_port, int is_noloop ) ;
+int  ttftp_client( char * host, char* port, char * file ) ;
+int  ttftp_server( char *listen_port, int is_noloop ) ;
 void validate(char* filename);
-void validatePort(int port);
+void validatePort(char* port);
 int sendErrorPacket(int error_code,char* error_msg,struct sockaddr_in*client_addr,int sock);
 void check(int val,char *error_msg);
 int fillDataPacket(FILE* file,char *data);

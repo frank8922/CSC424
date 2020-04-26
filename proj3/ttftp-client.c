@@ -25,10 +25,8 @@
 
 #define h_addr h_addr_list[0]
 
-int ttftp_client( char * to_host, int to_port, char * file ) {
-	int recvbytes = 0, 
-		sentbytes = 0, 
-		block_count;
+int ttftp_client( char * to_host, char* to_port, char * file ) {
+  int recvbytes = 0, sentbytes = 0, block_count;
 	void *buffer = malloc(MAXMSGLEN);
 	struct sockaddr_in from_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
@@ -41,7 +39,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	int sockfd = 0;
 
 	short opcode;
-	char * port;
+	//char * port;
 	struct addrinfo hints;
 	struct addrinfo *addrs;
 	
@@ -53,13 +51,9 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 	hints.ai_socktype = SOCK_DGRAM;
 	//use available ip
 	hints.ai_flags = AI_PASSIVE;
-
-	//allocate memory for port
-	port = malloc(2);
-	//convert port to string for getaddrinfo
-	sprintf(port,"%d",to_port);
+	  
 	//get hostname of sender
-	check((getaddrinfo(to_host,port,&hints,&addrs) !=0),"failed to resolve hostname");
+	check((getaddrinfo(to_host,to_port,&hints,&addrs) !=0),"failed to resolve hostname");
 	//create socket to send packets
 	check((sockfd = socket(addrs->ai_family,addrs->ai_socktype,addrs->ai_protocol)),"failed to create socket");
 	/*
@@ -87,14 +81,13 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
       
 			case TFTP_DATA:
 				data_packet = (TftpData*)buffer;
-				if((data_packet->data==NULL) || recvbytes < 4)
+				if(((data_packet->data)==NULL) || recvbytes < 4)
 				{
-				//recieved an empty packet
-				sentbytes = sendAckPacket(block_count,sockfd,&from_addr);
-				break;
+          //recieved an empty packet
+          sentbytes = sendAckPacket(block_count,sockfd,&from_addr);
+          break;
 				}
 				fwrite(data_packet->data,1,recvbytes-4,stdout);
-				printf("\n");
 				//send ack packet
 				sentbytes = sendAckPacket(block_count,sockfd,&from_addr);
 				//increment block count
@@ -105,7 +98,7 @@ int ttftp_client( char * to_host, int to_port, char * file ) {
 		/* check if more blocks expected, else 
 		 * set block_count = 0 ;
 		 */
-		if(recvbytes-4 < TFTP_DATALEN-1)
+		if(recvbytes < TFTP_DATALEN+4)
 		{
 			block_count = 0;
 			break;

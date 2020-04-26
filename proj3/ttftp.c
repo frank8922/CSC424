@@ -31,7 +31,7 @@ int g_verbose = 0 ;  // global declaration; extern definition in header
 int main(int argc, char * argv[]) {
 	int ch ;
 	int is_server = 0 ;
-	int port = 0 ; 
+	char *port;
 	int is_noloop = 0 ; 
 	char * hostname = NULL ;
 	char * filename = NULL ;
@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
 	// check whether we can use short as the data type for 2 byte int's
 	assert(sizeof(short)==2) ;
 
-	while ((ch = getopt(argc, argv, "vLf:h:")) != -1) {
+	while ((ch = getopt(argc, argv, "vLlf:h:")) != -1) {
 		switch(ch) {
 		case 'v':
 			g_verbose ++ ;
@@ -54,7 +54,10 @@ int main(int argc, char * argv[]) {
 			is_noloop = 1 ;
 			is_server = 1;
 			break ;
-		case '?':
+		case 'l':
+      is_noloop = 0;
+			is_server = 1;
+			break ;
 		default:
 			printf("%s\n",USAGE_MESSAGE) ;
 			return 0 ;
@@ -67,24 +70,24 @@ int main(int argc, char * argv[]) {
 			fprintf(stderr,"%s\n",USAGE_MESSAGE) ;
 		exit(0) ;
 	}
-	port = atoi(*argv) ;
-
+  port = strdup(*argv);
+	
 	// sanity check inputs
 	/* your code */
+  validatePort(port);
 
 	if (!is_server ) {
 		/* is client */
-		validate(filename);
-		validatePort(port);
+    validate(filename);
 		return ttftp_client( hostname, port, filename ) ;
 	}
 	else {
 		/* is server */
-		validatePort(port);
-		return ttftp_server( port, is_noloop ) ;
+		return ttftp_server(port, is_noloop ) ;
 	}
 	
 	assert(1==0) ;
+  free(port);
 	return 0 ;
 }
 
@@ -106,17 +109,18 @@ void validate(char* filename)
 
 }
 
-void validatePort(int port)
+void validatePort(char* p)
 {
+  int port = atoi(p);
     if(port < 1024) {
-      fprintf(stderr,"%s","Port must be between: 1025 - 65535");
+      fprintf(stderr,"%s\n","Port must be between: 1025 - 65535");
       exit(1);
     }
 }
 
 int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_addr,int sockfd_s)
 {
-      int sent = -1;
+      int sent = 0;
       int len = strlen(error_msg)+1;
       short opcode;
       TftpError *error_packet = malloc(sizeof(TftpError));
@@ -141,7 +145,7 @@ int sendErrorPacket(int error_code,char *error_msg,struct sockaddr_in *client_ad
 }
 int sendAckPacket(int block_num,int sock,struct sockaddr_in *client_addr)
 {
-    int sentbytes = -1;
+    int sentbytes = 0;
     TftpAck *ack_packet = malloc(sizeof(TftpAck));
     short opcode = htons(TFTP_ACK);
 
@@ -162,7 +166,7 @@ int sendAckPacket(int block_num,int sock,struct sockaddr_in *client_addr)
 
 int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packet,int size)
 {
-    int sentbytes = -1;
+    int sentbytes = 0;
 
     //send data packet
     check((sentbytes = sendto(sock,data_packet,(2 * sizeof(short)) + size,0,(struct sockaddr*)client_addr,sizeof(struct sockaddr_in))),"failed to send bytes");
@@ -172,7 +176,7 @@ int sendDataPacket(int sock,struct sockaddr_in *client_addr,TftpData *data_packe
 
 int fillDataPacket(FILE* file,char *data)
 {
-    int bytes_read = -1;
+    int bytes_read = 0;
     bytes_read += fread(data,1,TFTP_DATALEN,file);
     return bytes_read;
 }
@@ -199,7 +203,7 @@ TftpReq* createRRQ(char *filename)
 
 int sendRRQ(TftpReq *rrq_packet,int sockfd_s, struct sockaddr *client_addr)
 {
-    int sentbytes = -1;
+    int sentbytes = 0;
     int len = sizeof(rrq_packet->filename_and_mode); 
 
     //send RRQ

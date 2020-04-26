@@ -26,27 +26,20 @@
 #define FALSE 0
 
 
-int  ttftp_server( int listen_port, int is_noloop ) {
+int  ttftp_server( char* listen_port, int is_noloop ) {
 
 	int sockfd_l = 0, sockfd_s = 0, sentbytes = 0, block_count = 0, y = 1;
 	short opcode = 0;
 	struct sockaddr_in their_addr;
 	socklen_t socksize = sizeof(struct sockaddr_in);
 	struct addrinfo hints, *addrs;
-	char *l_port;
 
 
 	/*
 	 * create a socket to listen for RRQ
 	 */
 
-	//allocate space for port #
-	l_port = malloc(sizeof(short));
-	memset(&l_port,0,sizeof(short));
-
-	//convert port to string
-	sprintf(l_port,"%d",listen_port);
-
+	
 	//get address of server
 	memset(&hints,0,sizeof(hints));
 
@@ -54,7 +47,7 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	check((getaddrinfo(NULL,l_port,&hints,&addrs) != 0),"failed to resolve");
+	check((getaddrinfo(NULL,listen_port,&hints,&addrs) != 0),"failed to resolve");
 
 
 	//open socket to listen
@@ -70,11 +63,12 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 	//hold # of bytes received
 	int recvbytes = 0;
 	//get RRQ
-	check((recvbytes = recvfrom(sockfd_l,buffer,MAXMSGLEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
 
 	freeaddrinfo(addrs);
 
 	do {
+
+    check((recvbytes = recvfrom(sockfd_l,buffer,MAXMSGLEN-1,0,(struct sockaddr*)&their_addr,&socksize)),"error recieving bytes");	
 	
 		/*
 		 * for each RRQ 
@@ -137,8 +131,8 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 			data_packet->opcode[1] = opcode & 0xff; //store first byte
 			
 			//store block count
-			data_packet->block_num[0] = (block_count >> 8) & 0xff; //store 1st byte
-			data_packet->block_num[1] = block_count & 0xff; //store 2nd byte
+			data_packet->block_num[0] = block_count & 0xff; //store 2nd byte
+			data_packet->block_num[1] = (block_count >> 8) & 0xff; //store 1st byte
 			
 			//read file and fill packet
 			bytes_read = fillDataPacket(file,data_packet->data);
@@ -156,7 +150,7 @@ int  ttftp_server( int listen_port, int is_noloop ) {
 			opcode = *((uint8_t*)buffer);
 			if(opcode == TFTP_ACK) //check if opcode is an ACK
 			{
-        
+
 				TftpAck *recv_ack_packet = (TftpAck*)buffer;
 				short block_num = (recv_ack_packet->block_num[0] << 8) | recv_ack_packet->block_num[1]; //combine 1st & 2nd byte to form blocknum
 

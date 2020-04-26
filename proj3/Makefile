@@ -8,6 +8,14 @@
 # tagets build, test, clean and submit are required.
 # 
 
+SHELL= /bin/bash
+
+SCP_FILES= ttftp.c ttftp-client.c ttftp-server.c ttftp.h Makefile
+SCP_HOST= 18.235.255.35
+SCP_ALT= 54.173.147.78
+SCP_PEM= ../keys/csc424-keypair.pem
+SVN_USR= class
+
 COPTS= -g -Wall
 #COPTS= -Wall
 
@@ -43,6 +51,13 @@ test: ttftp
 	@echo "server started"	
 	./ttftp -h ${SERVER_HOST} -f ${FILE_S} ${PORT} > ${FILE_C}
 	diff ${FILE_S} ${FILE_C}
+
+
+scp-all:
+	for F in ${SCP_FILES}; do \
+	scp -i ${SCP_PEM} $$F ubuntu@${SCP_HOST}:~/csc424.svn/${SVN_USR}/proj3/  ;\
+	[ -z "${SCP_ALT}" ] || scp -i ${SCP_PEM} $$F ubuntu@${SCP_ALT}:~/csc424.svn/${SVN_USR}/proj3/  ;\
+	done
 
 clean:
 	-rm ttftp ttftp-server.o ttftp-client.o ${FILE_S} ${FILE_C}
