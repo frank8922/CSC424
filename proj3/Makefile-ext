@@ -8,10 +8,10 @@
 # you may have to adjust PORT= to claim an available port
 
 PORT= 33031
-#SERVER_HOST = localhost
+SERVER_HOST = localhost
 #SERVER_HOST = 100.25.181.125
 #address to my aws instance
-SERVER_HOST = 52.90.253.33
+#SERVER_HOST = 52.90.253.33
 TEST_DIR = testfiles
 
 COPTS= -g -Wall
