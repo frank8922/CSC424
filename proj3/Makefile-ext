@@ -1,0 +1,62 @@
+#
+# author:  pikachu
+# created: 14 feb 2016
+# updated: 19 apr 2020
+# 
+
+# adjust these macro values accordingly.
+# you may have to adjust PORT= to claim an available port
+
+PORT= 33031
+#SERVER_HOST = localhost
+#SERVER_HOST = 100.25.181.125
+#address to my aws instance
+SERVER_HOST = 52.90.253.33
+TEST_DIR = testfiles
+
+COPTS= -g -Wall
+#COPTS= -Wall
+
+all:
+	make build
+	tar xvf ${TEST_DIR}.tar
+	@echo "1) set SERVER_HOST to that IP on both this and the client machine"
+	@echo "2) run make -f Makefile-ext test-ext-s on the server machine"
+	@echo "3) then run make -f Makefile-ext test-ext-c on the client machine\x1b[m"
+	@echo "\nNote: firewall on server open for UDP port PORT\n"
+	@echo "\nNote: firewall on client open for UDP from SERVER_HOST portrange 0-65535\n"
+
+test-ext-s:
+	@echo running the server on ${SERVER_HOST} port ${PORT}
+	cp ttftp ${TEST_DIR}/
+	cd ${TEST_DIR} ; ./ttftp -l ${PORT}
+	
+test-ext-c: 
+	./ttftp -h ${SERVER_HOST} -f 0bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/0bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 1bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/1bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 1bytezero.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/1bytezero.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 16bytezero.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/16bytezero.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 1535bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/1535bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 1536bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/1536bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 1537bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/1537bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 511bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/511bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 512bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/512bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 513bytes.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/513bytes.bin f.out
+	./ttftp -h ${SERVER_HOST} -f 513byteszero.bin ${PORT} > f.out
+	cmp ${TEST_DIR}/513byteszero.bin f.out
+
+clean:
+	-rm f.out 
+	-rm -rf ${TEST_DIR}
+	-rm ttftp
+
