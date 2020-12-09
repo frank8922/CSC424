@@ -1,4 +1,4 @@
-# CSC424-Computer-Networks
+# CSC424 Computer Networks
 
 This repository contains examples and my assignments along with my solutions for them.
 
